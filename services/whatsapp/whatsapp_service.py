@@ -1,7 +1,7 @@
 import requests
 
 from utils.env_vars import EnvVars
-from .config import GRAPH_API_VERSION, MESSAGES_API_URL
+from utils.constants import GRAPH_API_VERSION, MESSAGES_API_URL
 
 
 class WhatsappService:

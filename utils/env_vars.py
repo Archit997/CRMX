@@ -33,7 +33,7 @@ class EnvVars(metaclass=_EnvVarsMeta):
             load_dotenv(path)
             cls._loaded = True
         except Exception:
-            pass
+            cls._loaded = False
 
     @classmethod
     def get(cls, name: str, default: str | None = None) -> str | None:
@@ -41,4 +41,4 @@ class EnvVars(metaclass=_EnvVarsMeta):
             cls._ensure_loaded()
             return os.getenv(name, default)
         except Exception:
-            pass
+            return default

@@ -1,5 +1,9 @@
 # python 3.11
 
 fastapi
+psycopg[binary]
+pymongo
 python-dotenv
 requests
+SQLAlchemy
+uvicorn
