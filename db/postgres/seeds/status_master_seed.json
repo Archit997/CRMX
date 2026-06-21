@@ -1,0 +1,100 @@
+[
+  {
+    "status_no": 1,
+    "status_name": "New Lead",
+    "category": "Lead",
+    "description": null,
+    "is_active": true
+  },
+  {
+    "status_no": 2,
+    "status_name": "Contacted",
+    "category": "Lead",
+    "description": null,
+    "is_active": true
+  },
+  {
+    "status_no": 3,
+    "status_name": "Asked for Information",
+    "category": "Lead",
+    "description": null,
+    "is_active": true
+  },
+  {
+    "status_no": 4,
+    "status_name": "Information Sent",
+    "category": "Lead",
+    "description": null,
+    "is_active": true
+  },
+  {
+    "status_no": 5,
+    "status_name": "Asked for Document",
+    "category": "Lead",
+    "description": null,
+    "is_active": true
+  },
+  {
+    "status_no": 6,
+    "status_name": "Document Sent",
+    "category": "Lead",
+    "description": null,
+    "is_active": true
+  },
+  {
+    "status_no": 7,
+    "status_name": "Follow-up Required",
+    "category": "Lead",
+    "description": null,
+    "is_active": true
+  },
+  {
+    "status_no": 8,
+    "status_name": "Negotiation Phase",
+    "category": "Client",
+    "description": null,
+    "is_active": true
+  },
+  {
+    "status_no": 9,
+    "status_name": "Payment Pending",
+    "category": "Client",
+    "description": null,
+    "is_active": true
+  },
+  {
+    "status_no": 10,
+    "status_name": "Order Confirmed",
+    "category": "Client",
+    "description": null,
+    "is_active": true
+  },
+  {
+    "status_no": 11,
+    "status_name": "Delivered / Completed",
+    "category": "Client",
+    "description": null,
+    "is_active": true
+  },
+  {
+    "status_no": 12,
+    "status_name": "After-Sales Follow-up",
+    "category": "Client",
+    "description": null,
+    "is_active": true
+  },
+  {
+    "status_no": 13,
+    "status_name": "On Hold",
+    "category": "Critical",
+    "description": null,
+    "is_active": true
+  },
+  {
+    "status_no": 14,
+    "status_name": "Lost",
+    "category": "Critical",
+    "description": null,
+    "is_active": true
+  }
+]

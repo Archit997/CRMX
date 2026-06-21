@@ -1,7 +1,11 @@
 import requests
 
+from services.whatsapp.constants import GRAPH_API_VERSION, MESSAGES_API_URL
+from utils.constants import LOG_LEVEL_ERROR
 from utils.env_vars import EnvVars
-from utils.constants import GRAPH_API_VERSION, MESSAGES_API_URL
+from utils.logger import AppLogger
+
+logger = AppLogger.get_logger(__name__)
 
 
 class WhatsappService:
@@ -18,21 +22,31 @@ class WhatsappService:
         )
 
     def send_message(self, to: str, message: str) -> dict:
-        payload = {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": to,
-            "type": "text",
-            "text": {"body": message},
-        }
-        response = requests.post(
-            self._messages_url(),
-            json=payload,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}",
-            },
-            timeout=30,
-        )
-        response.raise_for_status()
-        return response.json()
+        response = None
+        try:
+            payload = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": to,
+                "type": "text",
+                "text": {"body": message},
+            }
+            response = requests.post(
+                self._messages_url(),
+                json=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {self.api_key}",
+                },
+                timeout=30,
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            response_status = response.status_code if response is not None else "N/A"
+            logger.log(
+                LOG_LEVEL_ERROR,
+                f"WhatsApp message send failed for recipient {to}, response status: {response_status}, error: {e}",
+                exc_info=True,
+            )
+            raise

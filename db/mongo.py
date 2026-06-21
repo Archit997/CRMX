@@ -1,8 +1,11 @@
 from pymongo import MongoClient
 from pymongo.database import Database
 
-from utils.constants import DEFAULT_DB_NAME
+from services.mongo.constants import DEFAULT_DB_NAME
 from utils.env_vars import EnvVars
+from utils.logger import AppLogger
+
+logger = AppLogger.get_logger(__name__)
 
 
 class MongoDBClient:
@@ -15,14 +18,26 @@ class MongoDBClient:
 
         mongo_uri = EnvVars.get("MONGODB_URI")
         if not mongo_uri:
+            logger.error("MongoDB connection failed because MONGODB_URI is not set")
             raise ValueError("MONGODB_URI is not set")
 
-        self._client = MongoClient(mongo_uri)
+        try:
+            self._client = MongoClient(mongo_uri)
+            logger.info("MongoDB client initialized")
+        except Exception:
+            logger.exception("Failed to initialize MongoDB client")
+            raise
 
     def disconnect(self) -> None:
         if self._client is not None:
-            self._client.close()
-            self._client = None
+            try:
+                self._client.close()
+                logger.info("MongoDB client disconnected")
+            except Exception:
+                logger.exception("Failed to close MongoDB client cleanly")
+                raise
+            finally:
+                self._client = None
 
     def get_database(self) -> Database:
         self.connect()
@@ -30,4 +45,8 @@ class MongoDBClient:
         return self._client[db_name]
 
     def ping(self) -> dict:
-        return self.get_database().command("ping")
+        try:
+            return self.get_database().command("ping")
+        except Exception:
+            logger.exception("MongoDB ping failed")
+            raise
