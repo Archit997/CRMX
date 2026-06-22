@@ -1,5 +1,7 @@
 begin;
 
+-- Canonical status master seed data is stored in db/postgres/seeds/status_master_seed.json.
+
 -- =========================
 -- STATUS MASTER
 -- =========================

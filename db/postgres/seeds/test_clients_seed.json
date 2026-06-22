@@ -1,0 +1,67 @@
+[
+  {
+    "client_name": "test_aarav_mehta",
+    "company_name": "test_mehta_interiors",
+    "phone": "9000000001",
+    "whatsapp_number": "9000000001",
+    "email": "aarav@mehtainteriors.example",
+    "city": "Delhi",
+    "assigned_to": "Riya",
+    "current_status_no": 1,
+    "requirement_summary": "Looking for modular office furniture pricing.",
+    "priority": "Hot",
+    "created_date": "2026-06-01"
+  },
+  {
+    "client_name": "test_nisha_kapoor",
+    "company_name": "test_kapoor_textiles",
+    "phone": "9000000002",
+    "whatsapp_number": "9000000002",
+    "email": "nisha@kapoortextiles.example",
+    "city": "Jaipur",
+    "assigned_to": "Aman",
+    "current_status_no": 2,
+    "requirement_summary": "Asked for catalog and MOQ details.",
+    "priority": "Warm",
+    "created_date": "2026-06-03"
+  },
+  {
+    "client_name": "test_rahul_bansal",
+    "company_name": "test_bansal_logistics",
+    "phone": "9000000003",
+    "whatsapp_number": "9000000003",
+    "email": "rahul@bansallogistics.example",
+    "city": "Mumbai",
+    "assigned_to": "Riya",
+    "current_status_no": 4,
+    "requirement_summary": "Information pack already sent for warehouse racks.",
+    "priority": "Warm",
+    "created_date": "2026-06-05"
+  },
+  {
+    "client_name": "test_simran_kaur",
+    "company_name": "test_northline_retail",
+    "phone": "9000000004",
+    "whatsapp_number": "9000000004",
+    "email": "simran@northlineretail.example",
+    "city": "Chandigarh",
+    "assigned_to": "Dev",
+    "current_status_no": 7,
+    "requirement_summary": "Follow-up pending after first demo call.",
+    "priority": "Hot",
+    "created_date": "2026-06-07"
+  },
+  {
+    "client_name": "test_ishaan_verma",
+    "company_name": "test_verma_exports",
+    "phone": "9000000005",
+    "whatsapp_number": "9000000005",
+    "email": "ishaan@vermaexports.example",
+    "city": "Ludhiana",
+    "assigned_to": "Aman",
+    "current_status_no": 9,
+    "requirement_summary": "Waiting on payment confirmation for repeat order.",
+    "priority": "Cold",
+    "created_date": "2026-06-09"
+  }
+]
