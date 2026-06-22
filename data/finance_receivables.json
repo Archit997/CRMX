@@ -1,0 +1,29 @@
+[
+  {
+    "client_id": 103,
+    "client_name": "Vikram Jain",
+    "company_name": "Jain Plastics",
+    "amount_due": 240000,
+    "due_date": "2026-06-06",
+    "status": "Payment Pending",
+    "action": "Call before 2 PM for advance payment confirmation."
+  },
+  {
+    "client_id": 105,
+    "client_name": "Neha Shah",
+    "company_name": "Shah Textiles",
+    "amount_due": 360000,
+    "due_date": "2026-06-07",
+    "status": "Order Confirmed",
+    "action": "Send invoice and receipt copy on WhatsApp."
+  },
+  {
+    "client_id": 101,
+    "client_name": "Aman Gupta",
+    "company_name": "ABC Traders",
+    "amount_due": 470000,
+    "due_date": "2026-06-08",
+    "status": "Negotiation Phase",
+    "action": "Confirm payment terms after revised quotation."
+  }
+]

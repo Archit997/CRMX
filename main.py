@@ -1,17 +1,27 @@
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
+from pathlib import Path
+
 
 from db.postgres import PostgresDB
+
 from services.client.controller import client_router
 from services.postgres import PostgresService, postgres_router
 from services.status.controller import status_router
+from services.poc.controller import poc_router
+from services.poc.poc_data_service import POCDataService
+
 from utils.constants import (
     APP_TITLE,
     APP_VERSION,
     DEFAULT_SERVER_HOST,
     DEFAULT_SERVER_PORT,
 )
+
 from utils.env_vars import EnvVars
 from utils.logger import AppLogger
 
@@ -19,6 +29,10 @@ from contextlib import asynccontextmanager
 
 AppLogger.configure()
 logger = AppLogger.get_logger(__name__)
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+DATA_DIR = PROJECT_ROOT / "data"
+MOBILE_PROTOTYPE_DIR = PROJECT_ROOT / "mobile-prototype"
 
 
 @asynccontextmanager
@@ -29,6 +43,7 @@ async def lifespan(app: FastAPI):
         postgres_db.connect()
         app.state.postgres_db = postgres_db
         app.state.postgres_service = PostgresService(postgres_db)
+        app.state.poc_data_service = POCDataService(DATA_DIR)
         yield
     except Exception:
         logger.exception("Application lifespan failed")
@@ -43,10 +58,34 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=APP_TITLE, version=APP_VERSION, lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:8081",
+        "http://127.0.0.1:8090",
+        "http://localhost:8080",
+        "http://localhost:8081",
+        "http://localhost:8090",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(postgres_router)
 app.include_router(client_router)
 app.include_router(status_router)
 
+app.include_router(poc_router)
+app.mount("/mobile", StaticFiles(directory=MOBILE_PROTOTYPE_DIR, html=True), name="mobile")
+
+
+
+@app.get("/")
+async def root() -> RedirectResponse:
+    return RedirectResponse(url="/mobile/index.html")
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:

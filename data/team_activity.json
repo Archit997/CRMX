@@ -1,0 +1,26 @@
+[
+  {
+    "employee": "Rohit",
+    "role": "Sales",
+    "calls": 31,
+    "whatsapp_chats": 18,
+    "unlogged_calls": 4,
+    "score": 68
+  },
+  {
+    "employee": "Priya",
+    "role": "Sales + Finance",
+    "calls": 22,
+    "whatsapp_chats": 14,
+    "unlogged_calls": 1,
+    "score": 86
+  },
+  {
+    "employee": "Suresh",
+    "role": "Raw Material",
+    "calls": 14,
+    "whatsapp_chats": 9,
+    "unlogged_calls": 6,
+    "score": 54
+  }
+]
