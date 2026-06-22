@@ -1,13 +1,10 @@
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
-
-from utils.logger import AppLogger
+from dotenv import dotenv_values, load_dotenv
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _DEFAULT_ENV_FILE = _PROJECT_ROOT / ".env"
-logger = AppLogger.get_logger(__name__)
 
 
 class _EnvVarsMeta(type):
@@ -22,7 +19,6 @@ class _EnvVarsMeta(type):
 
 class EnvVars(metaclass=_EnvVarsMeta):
     """Loads variables from the project .env file and exposes them for runtime lookup."""
-
     _loaded: bool = False
 
     @classmethod
@@ -38,7 +34,6 @@ class EnvVars(metaclass=_EnvVarsMeta):
             cls._loaded = True
         except Exception:
             cls._loaded = False
-            logger.exception("Failed to load environment variables from %s", path)
 
     @classmethod
     def get(cls, name: str, default: str | None = None) -> str | None:
@@ -46,5 +41,4 @@ class EnvVars(metaclass=_EnvVarsMeta):
             cls._ensure_loaded()
             return os.getenv(name, default)
         except Exception:
-            logger.exception("Failed to read environment variable %s", name)
             return default

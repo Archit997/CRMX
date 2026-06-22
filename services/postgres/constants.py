@@ -1,2 +1,0 @@
-POSTGRES_ROUTE_PREFIX = "/postgres"
-POSTGRES_ROUTE_TAG = "postgres"

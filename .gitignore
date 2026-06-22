@@ -1,8 +1,16 @@
 
 test.py
 
+# macOS
+.DS_Store
+
 # virtual env
-crmx
+crmx/
+.venv/
+venv/
+env/
+ENV/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -20,6 +28,10 @@ downloads/
 eggs/
 .eggs/
 lib/
+!ui_flutter/
+!ui_flutter/**/
+!ui_flutter/**/lib/
+!ui_flutter/**/lib/**
 lib64/
 parts/
 sdist/
@@ -156,9 +168,6 @@ activemq-data/
 .env
 .envrc
 .venv
-env/
-venv/
-ENV/
 env.bak/
 venv.bak/
 
