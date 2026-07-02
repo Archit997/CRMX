@@ -14,7 +14,8 @@ class CRMXRepository {
 
   static const _defaultApiBaseUrl = String.fromEnvironment(
     'CRMX_API_BASE',
-    defaultValue: 'http://127.0.0.1:8000/api',
+    // Remove /api suffix - Postgres endpoints don't use it
+    defaultValue: 'http://127.0.0.1:8000',
   );
 
   final http.Client _client;
@@ -40,39 +41,64 @@ class CRMXRepository {
 
   Future<DashboardData> loadDashboard() async {
     try {
+      // Only call Postgres endpoints that exist
       final results = await Future.wait([
-        _getList('/statuses'),
-        _getList('/clients'),
-        _getList('/followups/today'),
-        _getMap('/analytics/manager'),
-        _getMap('/finance/receivables'),
+        _getList('/master-status'),      // Postgres statuses ✅
+        _getList('/client-list'),         // Postgres clients ✅
+        // Removed: followups, analytics, finance - not implemented in Postgres yet
       ]);
 
       final statuses = (results[0] as List<dynamic>)
           .map((item) => StatusMaster.fromJson(item as Map<String, dynamic>))
           .toList();
-      final clients = (results[1] as List<dynamic>)
-          .map((item) => ClientInfo.fromJson(item as Map<String, dynamic>))
-          .toList();
-      final followUps = (results[2] as List<dynamic>)
-          .map((item) => FollowUpItem.fromJson(item as Map<String, dynamic>))
-          .toList();
-      final manager = ManagerSummary.fromJson(results[3] as Map<String, dynamic>);
-      final financeJson = results[4] as Map<String, dynamic>;
-      final receivables = ((financeJson['items'] ?? []) as List<dynamic>)
-          .map((item) => FinanceReceivable.fromJson(item as Map<String, dynamic>))
-          .toList();
-
+      
+      final clientsRaw = results[1] as List<dynamic>;
+      
+      // Join status names with clients (Postgres endpoint doesn't include status_name)
+      final clients = clientsRaw.map((item) {
+        final clientMap = item as Map<String, dynamic>;
+        final statusNo = clientMap['current_status_no'] as int;
+        final status = statuses.firstWhere(
+          (s) => s.statusNo == statusNo,
+          orElse: () => StatusMaster(
+            statusNo: statusNo,
+            statusName: 'Unknown',
+            category: '',
+            description: '',
+          ),
+        );
+        
+        // Add missing fields for compatibility
+        clientMap['status_name'] = status.statusName;
+        clientMap['status_category'] = status.category;
+        clientMap['deal_value'] = clientMap['deal_value'] ?? 0;
+        
+        return ClientInfo.fromJson(clientMap);
+      }).toList();
+      
+      print('✅ Successfully loaded data from Postgres API: $_apiBaseUrl');
+      print('   Loaded ${clients.length} clients from /client-list');
+      print('   Loaded ${statuses.length} statuses from /master-status');
+      
       return DashboardData(
         statuses: statuses,
         clients: clients,
-        followUps: followUps,
-        manager: manager,
-        receivables: receivables,
-        financeMessage: financeJson['daily_message'] as String,
+        followUps: [],  // Empty - not implemented yet
+        manager: ManagerSummary(
+          calls: 0,
+          whatsapp: 0,
+          overdueFollowups: 0,
+          quotedValue: 0,
+          unloggedCalls: 0,
+        ),  // Empty - not implemented yet
+        receivables: [],  // Empty - not implemented yet
+        financeMessage: '',  // Empty - not implemented yet
         source: DataSource.api,
       );
-    } catch (_) {
+    } catch (e) {
+      print('❌ API call failed: $e');
+      print('⚠️  Falling back to mock data');
+      print('   API URL was: $_apiBaseUrl');
       return MockData.dashboard;
     }
   }
@@ -87,27 +113,65 @@ class CRMXRepository {
   }
 
   Future<List<ClientInfo>> searchClients(String query) async {
-    final response = await _client.get(
-      Uri.parse('$_apiBaseUrl/clients/search?q=${Uri.encodeQueryComponent(query)}'),
-    );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw StateError('Search failed: ${response.statusCode}');
+    try {
+      // Use Postgres search endpoint
+      final response = await _client.get(
+        Uri.parse('$_apiBaseUrl/client/${Uri.encodeComponent(query)}'),
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw StateError('Search failed: ${response.statusCode}');
+      }
+      
+      final clientsRaw = jsonDecode(response.body) as List<dynamic>;
+      
+      // Get statuses to join with clients
+      final statusesResponse = await _client.get(Uri.parse('$_apiBaseUrl/master-status'));
+      final statuses = (jsonDecode(statusesResponse.body) as List<dynamic>)
+          .map((item) => StatusMaster.fromJson(item as Map<String, dynamic>))
+          .toList();
+      
+      // Join status names with clients
+      return clientsRaw.map((item) {
+        final clientMap = item as Map<String, dynamic>;
+        final statusNo = clientMap['current_status_no'] as int;
+        final status = statuses.firstWhere(
+          (s) => s.statusNo == statusNo,
+          orElse: () => StatusMaster(
+            statusNo: statusNo,
+            statusName: 'Unknown',
+            category: '',
+            description: '',
+          ),
+        );
+        
+        clientMap['status_name'] = status.statusName;
+        clientMap['status_category'] = status.category;
+        clientMap['deal_value'] = clientMap['deal_value'] ?? 0;
+        
+        return ClientInfo.fromJson(clientMap);
+      }).toList();
+    } catch (e) {
+      // Fallback to local filtering if API search fails
+      throw StateError('Search failed: $e');
     }
-    return (jsonDecode(response.body) as List<dynamic>)
-        .map((item) => ClientInfo.fromJson(item as Map<String, dynamic>))
-        .toList();
   }
 
-  Future<ClientInfo> createClient(ClientDraft draft) async {
+  Future<ClientInfo> createClient(Map<String, dynamic> clientData) async {
+    print('📤 Creating client with data: $clientData');
     final response = await _client.post(
-      Uri.parse('$_apiBaseUrl/clients'),
+      Uri.parse('$_apiBaseUrl/client'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(draft.toJson()),
+      body: jsonEncode(clientData),
     );
+    
     if (response.statusCode != 201) {
-      throw StateError('Create client failed: ${response.statusCode}');
+      print('❌ Create client failed: ${response.statusCode} ${response.body}');
+      throw StateError('Create client failed: ${response.statusCode} ${response.body}');
     }
-    return ClientInfo.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    
+    print('✅ Client created successfully');
+    final clientInfo = ClientInfo.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    return clientInfo;
   }
 
   Future<ClientInfo> updateClient(int clientId, ClientDraft draft) async {
@@ -157,6 +221,43 @@ class CRMXRepository {
         'created_by': 'Flutter POC',
       }),
     );
+  }
+
+  Future<Map<String, dynamic>> changeClientStatus({
+    required int clientId,
+    required int statusId,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$_apiBaseUrl/change-client-status'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'client_id': clientId,
+        'status_id': statusId,
+      }),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw StateError('Change status failed: ${response.statusCode} ${response.body}');
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> patchClient(Map<String, dynamic> updates) async {
+    print('📤 Patching client with data: $updates');
+    final response = await _client.patch(
+      Uri.parse('$_apiBaseUrl/client-list'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(updates),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      print('❌ Patch client failed: ${response.statusCode} ${response.body}');
+      throw StateError('Patch client failed: ${response.statusCode} ${response.body}');
+    }
+
+    print('✅ Client patched successfully');
+    return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
   Future<List<dynamic>> _getList(String path) async {

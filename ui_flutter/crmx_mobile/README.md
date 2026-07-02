@@ -9,7 +9,7 @@ This package is intentionally separate from:
 
 ## Current Status
 
-Flutter is installed locally and this package has been generated for Android, iOS, and Web.
+Simple client list view with search functionality - no authentication required.
 
 Run locally:
 
@@ -18,6 +18,21 @@ cd ui_flutter/crmx_mobile
 flutter pub get
 flutter run -d chrome --dart-define=CRMX_API_BASE=http://127.0.0.1:8000/api
 ```
+
+## Features
+
+### Landing Page (Client List)
+
+- Displays all clients in a scrollable list
+- Each client card shows:
+  - Client Name
+  - Company Name
+  - Phone Number
+  - Current Status
+  - Priority badge
+- Real-time search by name, company, phone, or status
+- Pull to refresh
+- Mock data fallback when API is unavailable
 
 ## API Configuration
 
@@ -45,29 +60,32 @@ If the API is unreachable, the UI falls back to mock data so design work can con
 
 ## Screens
 
-- Sales: company SIM count, WhatsApp count, update form, follow-up queue.
-- Client: profile, status path, audit timeline.
-- Audit: call recording to transcription to translation to insight pipeline.
-- Manager: missed follow-ups, quoted value, unlogged calls, digest preview.
-- Finance: receivable follow-ups and WhatsApp summary.
+Current implementation:
+- **Client List (Landing Page)**: Scrollable list of all clients with search functionality
+
+Removed (for simplicity):
+- Authentication flow
+- Sales executive day screen
+- Manager analytics screen
+- Finance screen
+- Call intelligence screen
 
 ## Architecture
 
 ```text
 lib/
-  main.dart
+  main.dart                    # App entry point
   src/
-    app.dart
+    app.dart                   # Main app widget (no auth)
     data/
-      crmx_repository.dart
-      mock_data.dart
+      crmx_repository.dart     # API calls & data fetching
+      mock_data.dart           # Fallback mock data
     models/
-      crmx_models.dart
+      crmx_models.dart         # Data models (ClientInfo, etc.)
     theme/
-      app_theme.dart
+      app_theme.dart           # Material theme & colors
     ui/
-      home_shell.dart
-      widgets.dart
+      client_list_screen.dart  # Main landing page (client list + search)
 ```
 
 ## Design Direction

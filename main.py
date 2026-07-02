@@ -12,8 +12,9 @@ from db.postgres import PostgresDB
 from services.client.controller import client_router
 from services.postgres import PostgresService, postgres_router
 from services.status.controller import status_router
-from services.poc.controller import poc_router
-from services.poc.poc_data_service import POCDataService
+# POC endpoints commented out - using Postgres endpoints instead
+# from services.poc.controller import poc_router
+# from services.poc.poc_data_service import POCDataService
 
 from utils.constants import (
     APP_TITLE,
@@ -43,7 +44,8 @@ async def lifespan(app: FastAPI):
         postgres_db.connect()
         app.state.postgres_db = postgres_db
         app.state.postgres_service = PostgresService(postgres_db)
-        app.state.poc_data_service = POCDataService(DATA_DIR)
+        # POC data service commented out - using Postgres instead
+        # app.state.poc_data_service = POCDataService(DATA_DIR)
         yield
     except Exception:
         logger.exception("Application lifespan failed")
@@ -61,14 +63,7 @@ app = FastAPI(title=APP_TITLE, version=APP_VERSION, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:8080",
-        "http://127.0.0.1:8081",
-        "http://127.0.0.1:8090",
-        "http://localhost:8080",
-        "http://localhost:8081",
-        "http://localhost:8090",
-    ],
+    allow_origin_regex=r"http://(127\.0\.0\.1|localhost)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -78,14 +73,16 @@ app.include_router(postgres_router)
 app.include_router(client_router)
 app.include_router(status_router)
 
-app.include_router(poc_router)
+# POC router commented out - using Postgres endpoints instead
+# app.include_router(poc_router)
 app.mount("/mobile", StaticFiles(directory=MOBILE_PROTOTYPE_DIR, html=True), name="mobile")
 
 
 
 @app.get("/")
 async def root() -> RedirectResponse:
-    return RedirectResponse(url="/mobile/index.html")
+    # Redirect to docs instead of mobile prototype (POC)
+    return RedirectResponse(url="/docs")
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:

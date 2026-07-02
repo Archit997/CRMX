@@ -2,6 +2,7 @@
 
 fastapi
 psycopg[binary]
+psycopg2
 pymongo
 python-dotenv
 requests
