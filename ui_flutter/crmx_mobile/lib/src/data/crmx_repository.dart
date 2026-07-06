@@ -186,13 +186,6 @@ class CRMXRepository {
     return ClientInfo.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 
-  Future<void> deleteClient(int clientId) async {
-    final response = await _client.delete(Uri.parse('$_apiBaseUrl/clients/$clientId'));
-    if (response.statusCode != 204) {
-      throw StateError('Delete client failed: ${response.statusCode}');
-    }
-  }
-
   Future<void> createUpdate({
     required int clientId,
     required int newStatusNo,
@@ -258,6 +251,20 @@ class CRMXRepository {
 
     print('✅ Client patched successfully');
     return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<void> deleteClient(int clientId) async {
+    print('📤 Deleting client: $clientId');
+    final response = await _client.delete(
+      Uri.parse('$_apiBaseUrl/client?client_id=$clientId'),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      print('❌ Delete client failed: ${response.statusCode} ${response.body}');
+      throw StateError('Delete client failed: ${response.statusCode} ${response.body}');
+    }
+
+    print('✅ Client deleted successfully');
   }
 
   Future<List<dynamic>> _getList(String path) async {
