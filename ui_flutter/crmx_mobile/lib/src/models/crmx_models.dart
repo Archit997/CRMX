@@ -291,3 +291,28 @@ class FinanceReceivable {
     );
   }
 }
+
+enum DataSource {
+  api,
+  mock,
+}
+
+class DashboardData {
+  const DashboardData({
+    required this.statuses,
+    required this.clients,
+    required this.followUps,
+    required this.manager,
+    required this.receivables,
+    required this.financeMessage,
+    required this.source,
+  });
+
+  final List<StatusMaster> statuses;
+  final List<ClientInfo> clients;
+  final List<FollowUpItem> followUps;
+  final ManagerSummary manager;
+  final List<FinanceReceivable> receivables;
+  final String financeMessage;
+  final DataSource source;
+}

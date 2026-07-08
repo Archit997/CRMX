@@ -586,7 +586,7 @@ class _ClientWorkspaceScreenState extends State<ClientWorkspaceScreen> {
     if (draft == null) return;
 
     try {
-      final client = await widget.repository.createClient(draft);
+      final client = await widget.repository.createClient(draft.toJson());
       await widget.onRefresh();
       setState(() => _selected = client);
     } catch (_) {

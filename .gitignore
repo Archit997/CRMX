@@ -21,7 +21,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/ - commented out to allow Flutter lib directory
 lib64/
 parts/
 sdist/
@@ -32,6 +32,10 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Ignore Python lib directories but not Flutter
+/lib/
+!/ui_flutter/**/lib/
 
 # PyInstaller
 #   Usually these files are written by a python script from a template
