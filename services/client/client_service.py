@@ -4,6 +4,7 @@ import json
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -37,7 +38,7 @@ class ClientCreateRequest(BaseModel):
     whatsapp_number: str | None = None
     email: str | None = None
     city: str | None = None
-    assigned_to: str = Field(min_length=1)
+    assigned_to: UUID
     current_status_no: int
     requirement_summary: str | None = None
     priority: Literal["Hot", "Warm", "Cold"]
@@ -52,7 +53,7 @@ class ClientPatchRequest(BaseModel):
     whatsapp_number: str | None = None
     email: str | None = None
     city: str | None = None
-    assigned_to: str | None = None
+    assigned_to: UUID | None = None
     current_status_no: int | None = None
     requirement_summary: str | None = None
     priority: Literal["Hot", "Warm", "Cold"] | None = None

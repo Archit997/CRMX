@@ -12,6 +12,7 @@ from db.postgres import PostgresDB
 from services.client.controller import client_router
 from services.postgres import PostgresService, postgres_router
 from services.status.controller import status_router
+from services.user.controller import user_router
 # POC endpoints commented out - using Postgres endpoints instead
 # from services.poc.controller import poc_router
 # from services.poc.poc_data_service import POCDataService
@@ -72,6 +73,7 @@ app.add_middleware(
 app.include_router(postgres_router)
 app.include_router(client_router)
 app.include_router(status_router)
+app.include_router(user_router)
 
 # POC router commented out - using Postgres endpoints instead
 # app.include_router(poc_router)

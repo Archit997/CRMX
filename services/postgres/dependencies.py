@@ -10,6 +10,8 @@ from services.client.client_service import ClientService
 from services.client.client_update_repository import ClientUpdateRepository
 from services.status.status_repository import StatusRepository
 from services.status.status_service import StatusService
+from services.user.user_repository import UserRepository
+from services.user.user_service import UserService
 
 
 def get_db_session(request: Request) -> Generator[Session, None, None]:
@@ -36,4 +38,11 @@ def get_status_service(db_session: Session = Depends(get_db_session)) -> StatusS
     return StatusService(
         db_session=db_session,
         status_repository=StatusRepository(db_session),
+    )
+
+
+def get_user_service(db_session: Session = Depends(get_db_session)) -> UserService:
+    return UserService(
+        db_session=db_session,
+        user_repository=UserRepository(db_session),
     )
