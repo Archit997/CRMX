@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../../features/auth/domain/auth_user.dart';
 import '../models/crmx_models.dart';
 import '../theme/app_theme.dart';
 
 class CreateClientScreen extends StatefulWidget {
   const CreateClientScreen({
     required this.statuses,
+    required this.currentUser,
     super.key,
   });
 
   final List<StatusMaster> statuses;
+  final AuthUser currentUser;
 
   @override
   State<CreateClientScreen> createState() => _CreateClientScreenState();
@@ -23,7 +26,6 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
   final _whatsappController = TextEditingController();
   final _emailController = TextEditingController();
   final _cityController = TextEditingController();
-  final _assignedToController = TextEditingController();
   final _requirementController = TextEditingController();
 
   int _selectedStatusNo = 1; // Default: New Lead
@@ -37,7 +39,6 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
     _whatsappController.dispose();
     _emailController.dispose();
     _cityController.dispose();
-    _assignedToController.dispose();
     _requirementController.dispose();
     super.dispose();
   }
@@ -150,21 +151,37 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Assigned To (Required)
-            TextFormField(
-              controller: _assignedToController,
-              decoration: const InputDecoration(
-                labelText: 'Assigned To *',
-                hintText: 'Enter assignee name',
-                prefixIcon: Icon(Icons.person_outline),
+            // Assigned To (current signed-in user)
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                border: Border.all(color: AppTheme.line),
+                borderRadius: BorderRadius.circular(8),
               ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Assigned to is required';
-                }
-                return null;
-              },
-              textCapitalization: TextCapitalization.words,
+              child: Row(
+                children: [
+                  const Icon(Icons.person_outline, color: AppTheme.muted),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Assigned to',
+                          style: TextStyle(
+                              color: AppTheme.muted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700),
+                        ),
+                        Text(
+                          widget.currentUser.name ?? widget.currentUser.phone,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
 
@@ -259,7 +276,8 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
 
     // Get created_date as today's date
     final now = DateTime.now();
-    final createdDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final createdDate =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
     // WhatsApp defaults to phone if not provided
     final whatsapp = _whatsappController.text.trim().isEmpty
@@ -273,7 +291,7 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
       'whatsapp_number': whatsapp,
       'email': _emailController.text.trim(),
       'city': _cityController.text.trim(),
-      'assigned_to': _assignedToController.text.trim(),
+      'assigned_to': widget.currentUser.id,
       'current_status_no': _selectedStatusNo,
       'requirement_summary': _requirementController.text.trim(),
       'priority': _selectedPriority,

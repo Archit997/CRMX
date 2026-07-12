@@ -59,7 +59,8 @@ class AppTheme {
           minimumSize: const Size.fromHeight(48),
           backgroundColor: ink,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           textStyle: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
