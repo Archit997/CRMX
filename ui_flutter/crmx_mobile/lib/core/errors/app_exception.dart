@@ -11,7 +11,8 @@ abstract class AppException implements Exception {
 
 /// Network-related exceptions
 class NetworkException extends AppException {
-  const NetworkException([String message = 'Network error occurred']) : super(message);
+  const NetworkException([String message = 'Network error occurred'])
+      : super(message);
 }
 
 /// Authentication exceptions

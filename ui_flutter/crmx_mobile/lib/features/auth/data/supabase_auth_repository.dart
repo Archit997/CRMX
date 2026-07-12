@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import '../../../core/config/app_config.dart';
 import '../../../core/config/supabase_config.dart';
 import '../../../core/errors/app_exception.dart';
 import '../domain/auth_state.dart';
@@ -16,6 +19,7 @@ class SupabaseAuthRepository implements AuthRepository {
   StreamSubscription<supabase.AuthState>? _authSubscription;
 
   supabase.GoTrueClient get _auth => SupabaseConfig.auth;
+  String get _backendBaseUrl => AppConfig.backendBaseUrl;
 
   @override
   Future<void> sendOtp(String phoneNumber) async {
@@ -24,6 +28,8 @@ class SupabaseAuthRepository implements AuthRepository {
         phone: phoneNumber,
         shouldCreateUser: true,
       );
+    } on supabase.AuthException catch (e) {
+      throw AuthException('OTP request failed: ${e.message}');
     } catch (e) {
       throw AuthException('Failed to send OTP: ${e.toString()}');
     }
@@ -46,8 +52,64 @@ class SupabaseAuthRepository implements AuthRepository {
       }
 
       return _mapSupabaseUserToAuthUser(response.user!);
+    } on supabase.AuthException catch (e) {
+      throw AuthException('OTP verification failed: ${e.message}');
     } catch (e) {
       throw AuthException('Failed to verify OTP: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<AuthUser?> getAppProfile(AuthUser user) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_backendBaseUrl/auth/profile/${user.id}'),
+        headers: await _headers(),
+      );
+
+      if (response.statusCode != 200) {
+        throw AuthException('Failed to fetch profile: ${response.statusCode}');
+      }
+
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      if (body['exists'] != true) {
+        return null;
+      }
+
+      return _mergeProfile(user, body);
+    } catch (e) {
+      throw AuthException('Failed to fetch profile: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<AuthUser> requestSignup({
+    required AuthUser user,
+    required String name,
+    required String role,
+    String? contact,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_backendBaseUrl/auth/signup-request'),
+        headers: await _headers(),
+        body: jsonEncode({
+          'user_id': user.id,
+          'name': name,
+          'phone': user.phone,
+          'role': role,
+          'contact': contact,
+        }),
+      );
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw AuthException('Signup request failed: ${response.body}');
+      }
+
+      return _mergeProfile(
+          user, jsonDecode(response.body) as Map<String, dynamic>);
+    } catch (e) {
+      throw AuthException('Failed to request signup: ${e.toString()}');
     }
   }
 
@@ -113,14 +175,9 @@ class SupabaseAuthRepository implements AuthRepository {
   void _listenToAuthChanges() {
     _authSubscription = _auth.onAuthStateChange.listen((data) {
       final event = data.event;
-      final session = data.session;
 
       switch (event) {
         case supabase.AuthChangeEvent.signedIn:
-          if (session?.user != null) {
-            final user = _mapSupabaseUserToAuthUser(session!.user);
-            _authStateController.add(Authenticated(user));
-          }
           break;
 
         case supabase.AuthChangeEvent.signedOut:
@@ -128,17 +185,9 @@ class SupabaseAuthRepository implements AuthRepository {
           break;
 
         case supabase.AuthChangeEvent.tokenRefreshed:
-          if (session?.user != null) {
-            final user = _mapSupabaseUserToAuthUser(session!.user);
-            _authStateController.add(Authenticated(user));
-          }
           break;
 
         case supabase.AuthChangeEvent.userUpdated:
-          if (session?.user != null) {
-            final user = _mapSupabaseUserToAuthUser(session!.user);
-            _authStateController.add(Authenticated(user));
-          }
           break;
 
         default:
@@ -153,10 +202,28 @@ class SupabaseAuthRepository implements AuthRepository {
       id: user.id,
       phone: user.phone ?? '',
       email: user.email,
-      createdAt: user.createdAt != null
-          ? DateTime.parse(user.createdAt!)
-          : null,
+      createdAt: DateTime.parse(user.createdAt),
     );
+  }
+
+  AuthUser _mergeProfile(AuthUser user, Map<String, dynamic> profile) {
+    return user.copyWith(
+      phone: (profile['phone'] ?? user.phone) as String,
+      name: profile['name'] as String?,
+      role: profile['role'] as String?,
+      contact: profile['contact'] as String?,
+      approvalStatus: profile['approval_status'] as String?,
+      isActive: profile['is_active'] == true,
+    );
+  }
+
+  Future<Map<String, String>> _headers() async {
+    final token = _auth.currentSession?.accessToken;
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
   }
 
   /// Dispose resources

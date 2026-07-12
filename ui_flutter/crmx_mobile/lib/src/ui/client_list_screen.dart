@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../features/auth/domain/auth_user.dart';
 import '../../features/auth/presentation/auth_controller.dart';
+import '../../features/auth/presentation/pending_users_screen.dart';
 import '../../features/clients/presentation/client_controller.dart';
 import '../data/crmx_repository.dart';
 import '../models/crmx_models.dart';
@@ -9,7 +11,12 @@ import 'client_detail_screen.dart';
 import 'create_client_screen.dart';
 
 class ClientListScreen extends ConsumerStatefulWidget {
-  const ClientListScreen({super.key});
+  const ClientListScreen({
+    required this.currentUser,
+    super.key,
+  });
+
+  final AuthUser currentUser;
 
   @override
   ConsumerState<ClientListScreen> createState() => _ClientListScreenState();
@@ -81,12 +88,19 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
           ],
         ),
         actions: [
+          if (_canVerifyUsers)
+            IconButton(
+              icon: const Icon(Icons.verified_user_rounded),
+              onPressed: _openPendingApprovals,
+              tooltip: 'Pending user approvals',
+            ),
           // API status indicator
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: dashboardState.hasValue
                       ? AppTheme.green.withOpacity(0.15)
@@ -194,8 +208,7 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
           Expanded(
             child: dashboardState.when(
               data: (data) {
-                final clients =
-                    _isSearching ? _filteredClients : data.clients;
+                final clients = _isSearching ? _filteredClients : data.clients;
 
                 if (clients.isEmpty) {
                   return _buildEmptyState();
@@ -227,6 +240,22 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  bool get _canVerifyUsers =>
+      widget.currentUser.role == 'manager' ||
+      widget.currentUser.role == 'admin';
+
+  void _openPendingApprovals() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PendingUsersScreen(
+          authRepository: ref.read(authRepositoryProvider),
+          currentUser: widget.currentUser,
+        ),
       ),
     );
   }
@@ -331,7 +360,10 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
         final clientData = await Navigator.push<Map<String, dynamic>>(
           context,
           MaterialPageRoute(
-            builder: (context) => CreateClientScreen(statuses: data.statuses),
+            builder: (context) => CreateClientScreen(
+              statuses: data.statuses,
+              currentUser: widget.currentUser,
+            ),
           ),
         );
 
@@ -486,7 +518,8 @@ class ClientListCard extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.person_outline, size: 16, color: AppTheme.muted),
+                  const Icon(Icons.person_outline,
+                      size: 16, color: AppTheme.muted),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(

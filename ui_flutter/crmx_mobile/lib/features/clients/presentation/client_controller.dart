@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/api/api_client.dart';
 import '../../../src/models/crmx_models.dart';
-import '../../auth/data/auth_repository.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../data/client_repository.dart';
 

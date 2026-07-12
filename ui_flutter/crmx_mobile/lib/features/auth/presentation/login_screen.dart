@@ -3,10 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/phone_validator.dart';
 import '../domain/auth_state.dart';
 import 'auth_controller.dart';
-import 'otp_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({
+    this.initialError,
+    super.key,
+  });
+
+  final String? initialError;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -26,14 +30,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     ref.listen<AuthState>(authControllerProvider, (previous, next) {
-      if (next is OtpSent) {
-        // Navigate to OTP screen
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => OtpScreen(phoneNumber: next.phoneNumber),
-          ),
-        );
-      } else if (next is AuthError) {
+      if (next is AuthError) {
         // Show error
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -76,7 +73,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Enter your phone number to continue',
+                  'Enter your mobile number to continue',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey,
@@ -85,16 +82,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 48),
 
+                if (widget.initialError != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      border: Border.all(color: Colors.red.shade200),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      widget.initialError!,
+                      style: TextStyle(
+                        color: Colors.red.shade800,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
                 // Phone number input
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
                     labelText: 'Phone Number',
-                    hintText: '+919876543210',
+                    hintText: '9876543210',
                     prefixIcon: Icon(Icons.phone),
                     border: OutlineInputBorder(),
-                    helperText: 'Format: +[country code][number]',
+                    helperText:
+                        'Enter 10-digit Indian mobile number. Test OTP is 123456 for configured numbers.',
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
