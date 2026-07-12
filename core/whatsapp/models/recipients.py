@@ -1,0 +1,1 @@
+"""Recipient models for WhatsApp."""

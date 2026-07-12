@@ -1,0 +1,1 @@
+"""Result models for WhatsApp."""

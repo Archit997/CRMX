@@ -9,13 +9,14 @@ from pathlib import Path
 
 from db.postgres import PostgresDB
 
-from services.client.controller import client_router
-from services.postgres import PostgresService, postgres_router
-from services.status.controller import status_router
-from services.user.controller import user_router
+from core.client.controller import client_router
+from core.postgres.postgres_service import PostgresService, postgres_router
+from core.status.controller import status_router
+from core.user.controller import user_router
+from core.whatsapp.webhooks.routes import whatsapp_webhook_router
 # POC endpoints commented out - using Postgres endpoints instead
-# from services.poc.controller import poc_router
-# from services.poc.poc_data_service import POCDataService
+# from core.poc.controller import poc_router
+# from core.poc.poc_data_service import POCDataService
 
 from utils.constants import (
     APP_TITLE,
@@ -74,6 +75,7 @@ app.include_router(postgres_router)
 app.include_router(client_router)
 app.include_router(status_router)
 app.include_router(user_router)
+app.include_router(whatsapp_webhook_router)
 
 # POC router commented out - using Postgres endpoints instead
 # app.include_router(poc_router)
