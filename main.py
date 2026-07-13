@@ -10,7 +10,8 @@ from pathlib import Path
 from db.postgres import PostgresDB
 
 from core.client.controller import client_router
-from core.postgres.postgres_service import PostgresService, postgres_router
+from core.postgres.postgres_service import PostgresService
+from core.postgres.controller import postgres_router
 from core.status.controller import status_router
 from core.user.controller import user_router
 from core.whatsapp.webhooks.routes import whatsapp_webhook_router
