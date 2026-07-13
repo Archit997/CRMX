@@ -17,7 +17,7 @@ class AppConfig {
 
   // Phone Validation
   static const String phoneRegex = r'^\+[1-9]\d{1,14}$'; // E.164 format
-  
+
   // OTP Configuration
   static const int otpLength = 6;
   static const Duration otpResendDelay = Duration(seconds: 60);

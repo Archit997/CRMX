@@ -16,9 +16,19 @@ class User(Base):
     __tablename__ = "users"
     __table_args__ = {"schema": "public"}
 
-    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, server_default=text("gen_random_uuid()"))
+    # The database migration keeps this constrained to auth.users(id). The ORM
+    # does not map Supabase's auth schema, so declaring that cross-schema FK here
+    # breaks flush ordering.
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
     name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     role: Mapped[str] = mapped_column(Text, nullable=False)
+    phone: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    contact: Mapped[str | None] = mapped_column(Text)
+    approval_status: Mapped[str] = mapped_column(Text, nullable=False, default="pending", server_default=text("'pending'"))
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+    verified_by: Mapped[UUID | None] = mapped_column(ForeignKey("public.users.id", ondelete="SET NULL"))
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rejection_reason: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -44,6 +54,13 @@ class User(Base):
             "id": str(self.id),
             "name": self.name,
             "role": self.role,
+            "phone": self.phone,
+            "contact": self.contact,
+            "approval_status": self.approval_status,
+            "is_active": self.is_active,
+            "verified_by": str(self.verified_by) if self.verified_by else None,
+            "verified_at": self.verified_at,
+            "rejection_reason": self.rejection_reason,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }

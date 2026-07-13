@@ -21,6 +21,17 @@ class UserRepository:
     def get_by_name(self, name: str) -> User | None:
         return self.db_session.query(User).filter(User.name == name).first()
 
+    def get_by_phone(self, phone: str) -> User | None:
+        return self.db_session.query(User).filter(User.phone == phone).first()
+
+    def list_pending_users(self) -> list[User]:
+        return (
+            self.db_session.query(User)
+            .filter(User.approval_status == "pending")
+            .order_by(User.created_at.desc())
+            .all()
+        )
+
     def add(self, user: User) -> None:
         self.db_session.add(user)
 

@@ -115,6 +115,16 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 ),
                 textAlign: TextAlign.center,
               ),
+              const SizedBox(height: 8),
+              const Text(
+                'For Twilio test numbers, use fixed OTP 123456.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 48),
 
               // OTP input
@@ -183,7 +193,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   Future<void> _handleVerifyOtp() async {
     if (_otpController.text.length != AppConfig.otpLength) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Please enter ${AppConfig.otpLength}-digit OTP'),
           backgroundColor: Colors.red,
         ),
@@ -199,7 +209,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   Future<void> _handleResendOtp() async {
     await ref.read(authControllerProvider.notifier).sendOtp(widget.phoneNumber);
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

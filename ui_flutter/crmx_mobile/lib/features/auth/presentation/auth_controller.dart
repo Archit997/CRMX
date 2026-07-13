@@ -16,11 +16,11 @@ final authControllerProvider =
 
 final authUserProvider = StreamProvider<AuthUser?>((ref) async* {
   final repository = ref.read(authRepositoryProvider);
-  
+
   // Emit current user immediately
   final currentUser = await repository.getCurrentUser();
   yield currentUser;
-  
+
   // Then listen to auth state changes
   await for (final state in repository.authStateChanges()) {
     if (state is Authenticated) {
@@ -58,7 +58,27 @@ class AuthController extends StateNotifier<AuthState> {
         phoneNumber: phoneNumber,
         otp: otp,
       );
-      state = Authenticated(user);
+      state = await _stateForUser(user);
+    } on Exception catch (e) {
+      state = AuthError(e.toString());
+    }
+  }
+
+  Future<void> requestSignup({
+    required AuthUser user,
+    required String name,
+    required String role,
+    String? contact,
+  }) async {
+    try {
+      state = const Authenticating();
+      final pendingUser = await _authRepository.requestSignup(
+        user: user,
+        name: name,
+        role: role,
+        contact: contact,
+      );
+      state = ApprovalPending(pendingUser);
     } on Exception catch (e) {
       state = AuthError(e.toString());
     }
@@ -82,7 +102,7 @@ class AuthController extends StateNotifier<AuthState> {
       if (isAuthenticated) {
         final user = await _authRepository.getCurrentUser();
         if (user != null) {
-          state = Authenticated(user);
+          state = await _stateForUser(user);
         } else {
           state = const Unauthenticated();
         }
@@ -101,5 +121,18 @@ class AuthController extends StateNotifier<AuthState> {
     } catch (e) {
       state = const SessionExpired();
     }
+  }
+
+  Future<AuthState> _stateForUser(AuthUser user) async {
+    final profile = await _authRepository.getAppProfile(user);
+    if (profile == null) {
+      return SignupRequired(user);
+    }
+
+    return switch (profile.approvalStatus) {
+      'approved' when profile.isActive => Authenticated(profile),
+      'rejected' => ApprovalRejected(profile),
+      _ => ApprovalPending(profile),
+    };
   }
 }
