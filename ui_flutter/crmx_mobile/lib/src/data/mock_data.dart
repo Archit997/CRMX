@@ -1,14 +1,34 @@
 import '../models/crmx_models.dart';
-import 'crmx_repository.dart';
 
 class MockData {
   static const statuses = [
-    StatusMaster(statusNo: 1, statusName: 'New Lead', category: 'Lead', description: ''),
-    StatusMaster(statusNo: 6, statusName: 'Document Sent', category: 'Lead', description: ''),
-    StatusMaster(statusNo: 7, statusName: 'Follow-up Required', category: 'Lead', description: ''),
-    StatusMaster(statusNo: 8, statusName: 'Negotiation Phase', category: 'Client', description: ''),
-    StatusMaster(statusNo: 9, statusName: 'Payment Pending', category: 'Client', description: ''),
-    StatusMaster(statusNo: 10, statusName: 'Order Confirmed', category: 'Client', description: ''),
+    StatusMaster(
+        statusNo: 1, statusName: 'New Lead', category: 'Lead', description: ''),
+    StatusMaster(
+        statusNo: 6,
+        statusName: 'Document Sent',
+        category: 'Lead',
+        description: ''),
+    StatusMaster(
+        statusNo: 7,
+        statusName: 'Follow-up Required',
+        category: 'Lead',
+        description: ''),
+    StatusMaster(
+        statusNo: 8,
+        statusName: 'Negotiation Phase',
+        category: 'Client',
+        description: ''),
+    StatusMaster(
+        statusNo: 9,
+        statusName: 'Payment Pending',
+        category: 'Client',
+        description: ''),
+    StatusMaster(
+        statusNo: 10,
+        statusName: 'Order Confirmed',
+        category: 'Client',
+        description: ''),
   ];
 
   static const dashboard = DashboardData(
@@ -93,7 +113,8 @@ class MockData {
         action: 'Confirm payment terms after revised quotation.',
       ),
     ],
-    financeMessage: 'Today receivable follow-up:\n1. Jain Plastics: call before 2 PM.\n2. ABC Traders: confirm payment terms.',
+    financeMessage:
+        'Today receivable follow-up:\n1. Jain Plastics: call before 2 PM.\n2. ABC Traders: confirm payment terms.',
     source: DataSource.mock,
   );
 }

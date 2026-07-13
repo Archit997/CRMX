@@ -72,12 +72,16 @@ class MetricCard extends StatelessWidget {
         children: [
           Text(
             value,
-            style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900, color: color),
+            style: TextStyle(
+                fontSize: 25, fontWeight: FontWeight.w900, color: color),
           ),
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(color: AppTheme.muted, fontSize: 12, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+                color: AppTheme.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w800),
           ),
         ],
       ),
@@ -116,9 +120,14 @@ class InfoCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(color: AppTheme.muted, fontSize: 12, fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                      color: AppTheme.muted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800),
                 ),
-                Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                Text(value,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w900)),
               ],
             ),
           ),
@@ -148,7 +157,8 @@ class StatusPill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w900),
+        style:
+            TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w900),
       ),
     );
   }
@@ -161,7 +171,11 @@ class FollowUpTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = item.isOverdue ? AppTheme.red : item.priority == 'Hot' ? AppTheme.amber : AppTheme.green;
+    final color = item.isOverdue
+        ? AppTheme.red
+        : item.priority == 'Hot'
+            ? AppTheme.amber
+            : AppTheme.green;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -171,24 +185,31 @@ class FollowUpTile extends StatelessWidget {
             Container(
               width: 5,
               height: 52,
-              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(99)),
+              decoration: BoxDecoration(
+                  color: color, borderRadius: BorderRadius.circular(99)),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.clientName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                  Text(item.clientName,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 4),
                   Text(
                     item.note,
-                    style: const TextStyle(color: AppTheme.muted, height: 1.35, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                        color: AppTheme.muted,
+                        height: 1.35,
+                        fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            Text(item.followupTime ?? 'Any', style: const TextStyle(fontWeight: FontWeight.w900)),
+            Text(item.followupTime ?? 'Any',
+                style: const TextStyle(fontWeight: FontWeight.w900)),
           ],
         ),
       ),
@@ -280,11 +301,16 @@ class DetailRow extends StatelessWidget {
             width: 74,
             child: Text(
               label,
-              style: const TextStyle(color: AppTheme.muted, fontSize: 12, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                  color: AppTheme.muted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800),
             ),
           ),
           Expanded(
-            child: Text(value, style: const TextStyle(fontWeight: FontWeight.w800, height: 1.3)),
+            child: Text(value,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w800, height: 1.3)),
           ),
         ],
       ),
@@ -365,11 +391,16 @@ class TimelineTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(update.updateType, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+                  Text(update.updateType,
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 4),
                   Text(
                     update.note,
-                    style: const TextStyle(color: AppTheme.muted, height: 1.35, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                        color: AppTheme.muted,
+                        height: 1.35,
+                        fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
@@ -403,18 +434,25 @@ class PipelineStep extends StatelessWidget {
           CircleAvatar(
             radius: 15,
             backgroundColor: AppTheme.ink,
-            child: Text(number, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+            child: Text(number,
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w900)),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 3),
                 Text(
                   body,
-                  style: const TextStyle(color: AppTheme.muted, height: 1.35, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                      color: AppTheme.muted,
+                      height: 1.35,
+                      fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -441,17 +479,24 @@ class ReceivableTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.companyName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                  Text(item.companyName,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 4),
                   Text(
                     item.action,
-                    style: const TextStyle(color: AppTheme.muted, height: 1.35, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                        color: AppTheme.muted,
+                        height: 1.35,
+                        fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            Text(currency(item.amountDue), style: const TextStyle(color: AppTheme.red, fontWeight: FontWeight.w900)),
+            Text(currency(item.amountDue),
+                style: const TextStyle(
+                    color: AppTheme.red, fontWeight: FontWeight.w900)),
           ],
         ),
       ),

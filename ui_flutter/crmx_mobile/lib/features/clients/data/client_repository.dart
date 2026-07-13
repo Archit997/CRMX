@@ -45,7 +45,7 @@ class ClientRepository {
         statuses: statuses,
         clients: clients,
         followUps: [],
-        manager: ManagerSummary(
+        manager: const ManagerSummary(
           calls: 0,
           whatsapp: 0,
           overdueFollowups: 0,

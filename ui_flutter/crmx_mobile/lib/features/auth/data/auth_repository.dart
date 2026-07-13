@@ -12,6 +12,17 @@ abstract class AuthRepository {
     required String otp,
   });
 
+  /// Get app profile and approval state for a Supabase auth user
+  Future<AuthUser?> getAppProfile(AuthUser user);
+
+  /// Create pending app profile after first OTP verification
+  Future<AuthUser> requestSignup({
+    required AuthUser user,
+    required String name,
+    required String role,
+    String? contact,
+  });
+
   /// Sign out
   Future<void> signOut();
 

@@ -42,16 +42,21 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     super.initState();
     _currentStatusNo = widget.client.currentStatusNo;
     _selectedPriority = widget.client.priority;
-    
+
     // Initialize controllers with current values
-    _clientNameController = TextEditingController(text: widget.client.clientName);
-    _companyNameController = TextEditingController(text: widget.client.companyName);
+    _clientNameController =
+        TextEditingController(text: widget.client.clientName);
+    _companyNameController =
+        TextEditingController(text: widget.client.companyName);
     _phoneController = TextEditingController(text: widget.client.phone);
-    _whatsappController = TextEditingController(text: widget.client.whatsappNumber);
+    _whatsappController =
+        TextEditingController(text: widget.client.whatsappNumber);
     _emailController = TextEditingController(text: widget.client.email);
     _cityController = TextEditingController(text: widget.client.city);
-    _assignedToController = TextEditingController(text: widget.client.assignedTo);
-    _requirementController = TextEditingController(text: widget.client.requirementSummary);
+    _assignedToController =
+        TextEditingController(text: widget.client.assignedTo);
+    _requirementController =
+        TextEditingController(text: widget.client.requirementSummary);
   }
 
   @override
@@ -138,7 +143,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     _requirementController.text = widget.client.requirementSummary;
     _selectedPriority = widget.client.priority;
     _currentStatusNo = widget.client.currentStatusNo;
-    
+
     setState(() => _isEditMode = false);
   }
 
@@ -164,7 +169,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       return;
     }
 
-    if (_phoneController.text.trim().isEmpty || _phoneController.text.trim().length != 10) {
+    if (_phoneController.text.trim().isEmpty ||
+        _phoneController.text.trim().length != 10) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Phone number must be exactly 10 digits'),
@@ -213,7 +219,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       if (_assignedToController.text.trim() != widget.client.assignedTo) {
         updates['assigned_to'] = _assignedToController.text.trim();
       }
-      if (_requirementController.text.trim() != widget.client.requirementSummary) {
+      if (_requirementController.text.trim() !=
+          widget.client.requirementSummary) {
         updates['requirement_summary'] = _requirementController.text.trim();
       }
       if (_selectedPriority != widget.client.priority) {
@@ -278,7 +285,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             ),
             TextButton(
               onPressed: _saveClient,
-              child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text('Save',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ] else
             IconButton(
@@ -372,7 +380,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
+            const Text(
               'This action cannot be undone.',
               style: TextStyle(
                 fontSize: 14,
@@ -401,7 +409,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
           ),
           FilledButton.icon(
             onPressed: () {
-              if (confirmationController.text.trim() == widget.client.clientName) {
+              if (confirmationController.text.trim() ==
+                  widget.client.clientName) {
                 Navigator.pop(context);
                 confirmationController.dispose();
                 _deleteClient();
@@ -448,7 +457,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✅ Client "${widget.client.clientName}" deleted successfully'),
+          content: Text(
+              '✅ Client "${widget.client.clientName}" deleted successfully'),
           backgroundColor: AppTheme.green,
           duration: const Duration(seconds: 2),
         ),
@@ -638,7 +648,9 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             _buildInfoRow(
               Icons.email,
               'Email',
-              widget.client.email.isEmpty ? 'Not provided' : widget.client.email,
+              widget.client.email.isEmpty
+                  ? 'Not provided'
+                  : widget.client.email,
             ),
           ],
         ),
@@ -687,7 +699,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                 fontWeight: FontWeight.w700,
                 color: AppTheme.green,
               ),
-              icon: Icon(
+              icon: const Icon(
                 Icons.arrow_drop_down,
                 color: AppTheme.green,
               ),

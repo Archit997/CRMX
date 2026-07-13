@@ -36,24 +36,25 @@ class CRMXRepository {
     if (response.statusCode != 200) {
       throw StateError('Login failed');
     }
-    return UserSession.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    return UserSession.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>);
   }
 
   Future<DashboardData> loadDashboard() async {
     try {
       // Only call Postgres endpoints that exist
       final results = await Future.wait([
-        _getList('/master-status'),      // Postgres statuses ✅
-        _getList('/client-list'),         // Postgres clients ✅
+        _getList('/master-status'), // Postgres statuses ✅
+        _getList('/client-list'), // Postgres clients ✅
         // Removed: followups, analytics, finance - not implemented in Postgres yet
       ]);
 
-      final statuses = (results[0] as List<dynamic>)
+      final statuses = results[0]
           .map((item) => StatusMaster.fromJson(item as Map<String, dynamic>))
           .toList();
-      
-      final clientsRaw = results[1] as List<dynamic>;
-      
+
+      final clientsRaw = results[1];
+
       // Join status names with clients (Postgres endpoint doesn't include status_name)
       final clients = clientsRaw.map((item) {
         final clientMap = item as Map<String, dynamic>;
@@ -67,32 +68,32 @@ class CRMXRepository {
             description: '',
           ),
         );
-        
+
         // Add missing fields for compatibility
         clientMap['status_name'] = status.statusName;
         clientMap['status_category'] = status.category;
         clientMap['deal_value'] = clientMap['deal_value'] ?? 0;
-        
+
         return ClientInfo.fromJson(clientMap);
       }).toList();
-      
+
       print('✅ Successfully loaded data from Postgres API: $_apiBaseUrl');
       print('   Loaded ${clients.length} clients from /client-list');
       print('   Loaded ${statuses.length} statuses from /master-status');
-      
+
       return DashboardData(
         statuses: statuses,
         clients: clients,
-        followUps: [],  // Empty - not implemented yet
-        manager: ManagerSummary(
+        followUps: [], // Empty - not implemented yet
+        manager: const ManagerSummary(
           calls: 0,
           whatsapp: 0,
           overdueFollowups: 0,
           quotedValue: 0,
           unloggedCalls: 0,
-        ),  // Empty - not implemented yet
-        receivables: [],  // Empty - not implemented yet
-        financeMessage: '',  // Empty - not implemented yet
+        ), // Empty - not implemented yet
+        receivables: [], // Empty - not implemented yet
+        financeMessage: '', // Empty - not implemented yet
         source: DataSource.api,
       );
     } catch (e) {
@@ -121,15 +122,16 @@ class CRMXRepository {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw StateError('Search failed: ${response.statusCode}');
       }
-      
+
       final clientsRaw = jsonDecode(response.body) as List<dynamic>;
-      
+
       // Get statuses to join with clients
-      final statusesResponse = await _client.get(Uri.parse('$_apiBaseUrl/master-status'));
+      final statusesResponse =
+          await _client.get(Uri.parse('$_apiBaseUrl/master-status'));
       final statuses = (jsonDecode(statusesResponse.body) as List<dynamic>)
           .map((item) => StatusMaster.fromJson(item as Map<String, dynamic>))
           .toList();
-      
+
       // Join status names with clients
       return clientsRaw.map((item) {
         final clientMap = item as Map<String, dynamic>;
@@ -143,11 +145,11 @@ class CRMXRepository {
             description: '',
           ),
         );
-        
+
         clientMap['status_name'] = status.statusName;
         clientMap['status_category'] = status.category;
         clientMap['deal_value'] = clientMap['deal_value'] ?? 0;
-        
+
         return ClientInfo.fromJson(clientMap);
       }).toList();
     } catch (e) {
@@ -163,14 +165,16 @@ class CRMXRepository {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(clientData),
     );
-    
+
     if (response.statusCode != 201) {
       print('❌ Create client failed: ${response.statusCode} ${response.body}');
-      throw StateError('Create client failed: ${response.statusCode} ${response.body}');
+      throw StateError(
+          'Create client failed: ${response.statusCode} ${response.body}');
     }
-    
+
     print('✅ Client created successfully');
-    final clientInfo = ClientInfo.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    final clientInfo =
+        ClientInfo.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
     return clientInfo;
   }
 
@@ -183,7 +187,8 @@ class CRMXRepository {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw StateError('Update client failed: ${response.statusCode}');
     }
-    return ClientInfo.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    return ClientInfo.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>);
   }
 
   Future<void> createUpdate({
@@ -230,7 +235,8 @@ class CRMXRepository {
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw StateError('Change status failed: ${response.statusCode} ${response.body}');
+      throw StateError(
+          'Change status failed: ${response.statusCode} ${response.body}');
     }
 
     return jsonDecode(response.body) as Map<String, dynamic>;
@@ -246,7 +252,8 @@ class CRMXRepository {
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       print('❌ Patch client failed: ${response.statusCode} ${response.body}');
-      throw StateError('Patch client failed: ${response.statusCode} ${response.body}');
+      throw StateError(
+          'Patch client failed: ${response.statusCode} ${response.body}');
     }
 
     print('✅ Client patched successfully');
@@ -261,7 +268,8 @@ class CRMXRepository {
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       print('❌ Delete client failed: ${response.statusCode} ${response.body}');
-      throw StateError('Delete client failed: ${response.statusCode} ${response.body}');
+      throw StateError(
+          'Delete client failed: ${response.statusCode} ${response.body}');
     }
 
     print('✅ Client deleted successfully');

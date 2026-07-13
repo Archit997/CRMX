@@ -13,8 +13,26 @@ class Unauthenticated extends AuthState {
 /// OTP sent successfully
 class OtpSent extends AuthState {
   const OtpSent(this.phoneNumber);
-  
+
   final String phoneNumber;
+}
+
+class SignupRequired extends AuthState {
+  const SignupRequired(this.user);
+
+  final AuthUser user;
+}
+
+class ApprovalPending extends AuthState {
+  const ApprovalPending(this.user);
+
+  final AuthUser user;
+}
+
+class ApprovalRejected extends AuthState {
+  const ApprovalRejected(this.user);
+
+  final AuthUser user;
 }
 
 /// Authentication in progress
@@ -25,14 +43,14 @@ class Authenticating extends AuthState {
 /// Successfully authenticated
 class Authenticated extends AuthState {
   const Authenticated(this.user);
-  
+
   final AuthUser user;
 }
 
 /// Authentication error
 class AuthError extends AuthState {
   const AuthError(this.message, [this.code]);
-  
+
   final String message;
   final String? code;
 }

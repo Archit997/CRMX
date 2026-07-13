@@ -55,18 +55,26 @@ class _AuthScreenState extends State<AuthScreen> {
             const SizedBox(height: 12),
             const Text(
               'Daily follow-ups, client status, receivables, and call audit in one field-friendly mobile app.',
-              style: TextStyle(color: AppTheme.muted, height: 1.35, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                  color: AppTheme.muted,
+                  height: 1.35,
+                  fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 26),
             AppCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('Sign in', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                  const Text('Sign in',
+                      style:
+                          TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
                   const SizedBox(height: 6),
                   const Text(
                     'Use phone or email. POC accounts are local dummy users.',
-                    style: TextStyle(color: AppTheme.muted, height: 1.35, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                        color: AppTheme.muted,
+                        height: 1.35,
+                        fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 18),
                   TextField(
@@ -91,7 +99,8 @@ class _AuthScreenState extends State<AuthScreen> {
                     const SizedBox(height: 10),
                     Text(
                       _error!,
-                      style: const TextStyle(color: AppTheme.red, fontWeight: FontWeight.w800),
+                      style: const TextStyle(
+                          color: AppTheme.red, fontWeight: FontWeight.w800),
                     ),
                   ],
                   const SizedBox(height: 18),
@@ -114,11 +123,17 @@ class _AuthScreenState extends State<AuthScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('POC users', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                  Text('POC users',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
                   SizedBox(height: 10),
-                  DetailRow(label: 'Sales', value: 'rohit@crmx.local / sales123'),
-                  DetailRow(label: 'Manager', value: 'priya@crmx.local / manager123'),
-                  DetailRow(label: 'Finance', value: 'finance@crmx.local / finance123'),
+                  DetailRow(
+                      label: 'Sales', value: 'rohit@crmx.local / sales123'),
+                  DetailRow(
+                      label: 'Manager', value: 'priya@crmx.local / manager123'),
+                  DetailRow(
+                      label: 'Finance',
+                      value: 'finance@crmx.local / finance123'),
                 ],
               ),
             ),
