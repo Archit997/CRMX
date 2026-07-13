@@ -1,0 +1,26 @@
+[
+  {
+    "user_id": 1,
+    "name": "Rohit Sharma",
+    "phone": "9876500001",
+    "email": "rohit@crmx.local",
+    "role": "sales",
+    "password": "sales123"
+  },
+  {
+    "user_id": 2,
+    "name": "Priya Mehta",
+    "phone": "9876500002",
+    "email": "priya@crmx.local",
+    "role": "manager",
+    "password": "manager123"
+  },
+  {
+    "user_id": 3,
+    "name": "Finance Desk",
+    "phone": "9876500003",
+    "email": "finance@crmx.local",
+    "role": "finance",
+    "password": "finance123"
+  }
+]

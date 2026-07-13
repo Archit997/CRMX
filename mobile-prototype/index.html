@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CRMX Mobile Prototype</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="stage">
+      <section class="phone-shell" aria-label="CRMX mobile prototype">
+        <div class="device-bar">
+          <span>9:41</span>
+          <span class="signal">5G</span>
+        </div>
+
+        <header class="app-header">
+          <div>
+            <p class="eyebrow">Company SIM + WhatsApp audit</p>
+            <h1>CRMX</h1>
+          </div>
+          <button class="icon-button" type="button" aria-label="Open alerts">
+            <span class="dot"></span>
+          </button>
+        </header>
+
+        <section class="command-strip" aria-label="Daily command summary">
+          <article>
+            <span id="calls-count">42</span>
+            <p>calls</p>
+          </article>
+          <article>
+            <span id="whatsapp-count">18</span>
+            <p>WhatsApp</p>
+          </article>
+          <article class="risk">
+            <span id="overdue-count">7</span>
+            <p>overdue</p>
+          </article>
+        </section>
+
+        <nav class="tab-bar" aria-label="Primary">
+          <button class="tab-button active" type="button" data-screen="sales">Sales</button>
+          <button class="tab-button" type="button" data-screen="client">Client</button>
+          <button class="tab-button" type="button" data-screen="manager">Manager</button>
+          <button class="tab-button" type="button" data-screen="finance">Finance</button>
+        </nav>
+
+        <div class="screen-stack">
+          <section class="screen active" id="screen-sales">
+            <div class="screen-heading">
+              <div>
+                <p class="eyebrow">Rohit Sharma</p>
+                <h2>Sales executive day</h2>
+              </div>
+              <span class="pill live">Live sync</span>
+            </div>
+
+            <section class="sync-row">
+              <article class="sync-card">
+                <span class="sync-mark sim"></span>
+                <div>
+                  <p>Company SIM</p>
+                  <strong id="sim-sync-count">31 calls</strong>
+                </div>
+              </article>
+              <article class="sync-card">
+                <span class="sync-mark wa"></span>
+                <div>
+                  <p>WhatsApp</p>
+                  <strong id="wa-sync-count">18 chats</strong>
+                </div>
+              </article>
+            </section>
+
+            <form class="entry-panel" id="quick-update-form">
+              <label>
+                Client
+                <select id="client-select">
+                  <option value="Aman Gupta">Aman Gupta, ABC Traders</option>
+                  <option value="Kavita Mehra">Kavita Mehra, KM Distributors</option>
+                  <option value="Vikram Jain">Vikram Jain, Jain Plastics</option>
+                </select>
+              </label>
+
+              <div class="field-grid">
+                <label>
+                  Status
+                  <select id="status-select">
+                    <option>New Lead</option>
+                    <option>Contacted</option>
+                    <option>Asked for Information</option>
+                    <option>Information Sent</option>
+                    <option>Asked for Document</option>
+                    <option>Document Sent</option>
+                    <option selected>Follow-up Required</option>
+                    <option>Negotiation Phase</option>
+                    <option>Payment Pending</option>
+                    <option>Order Confirmed</option>
+                    <option>Delivered / Completed</option>
+                    <option>After-Sales Follow-up</option>
+                    <option>On Hold</option>
+                    <option>Lost</option>
+                  </select>
+                </label>
+                <label>
+                  Request
+                  <select id="request-select">
+                    <option>Price</option>
+                    <option selected>Quotation</option>
+                    <option>Receipt</option>
+                    <option>Delivery</option>
+                    <option>None</option>
+                  </select>
+                </label>
+              </div>
+
+              <label>
+                Note
+                <textarea id="note-input" rows="3">Client asked for bulk discount after checking quotation.</textarea>
+              </label>
+
+              <div class="field-grid">
+                <label>
+                  Follow-up date
+                  <input id="follow-date" type="date" value="2026-06-08" />
+                </label>
+                <label>
+                  Time
+                  <input id="follow-time" type="time" value="12:00" />
+                </label>
+              </div>
+
+              <button class="primary-action" type="submit">Save update</button>
+            </form>
+
+            <section class="queue">
+              <div class="section-title">
+                <h3>Follow-up queue</h3>
+                <button type="button">Sort</button>
+              </div>
+              <div id="followup-list">
+              <article class="task-card hot">
+                <div>
+                  <strong>Aman Gupta</strong>
+                  <p>Quotation review, bulk discount pending</p>
+                </div>
+                <span>11:30</span>
+              </article>
+              <article class="task-card warn">
+                <div>
+                  <strong>Vikram Jain</strong>
+                  <p>Payment commitment needed before dispatch</p>
+                </div>
+                <span>14:00</span>
+              </article>
+              <article class="task-card cool">
+                <div>
+                  <strong>Kavita Mehra</strong>
+                  <p>Catalogue sent, call after factory meeting</p>
+                </div>
+                <span>16:30</span>
+              </article>
+              </div>
+            </section>
+          </section>
+
+          <section class="screen" id="screen-client">
+            <div class="screen-heading">
+              <div>
+                <p class="eyebrow" id="client-company">ABC Traders</p>
+                <h2 id="client-name">Aman Gupta</h2>
+              </div>
+              <span class="pill hot-pill" id="client-priority">Hot</span>
+            </div>
+
+            <section class="profile-grid">
+              <article>
+                <p>Phone</p>
+                <strong id="client-phone">+91 98765 43210</strong>
+              </article>
+              <article>
+                <p>Owner</p>
+                <strong id="client-owner">Rohit</strong>
+              </article>
+              <article>
+                <p>Need</p>
+                <strong id="client-need">500 units, bulk discount</strong>
+              </article>
+              <article>
+                <p>City</p>
+                <strong id="client-city">Delhi</strong>
+              </article>
+            </section>
+
+            <section class="status-rail" id="status-rail" aria-label="Client status path">
+              <button type="button">1 New Lead</button>
+              <button type="button">3 Asked Info</button>
+              <button type="button">6 Document Sent</button>
+              <button class="current" type="button">8 Negotiation</button>
+              <button type="button">9 Payment Pending</button>
+              <button type="button">10 Order Confirmed</button>
+            </section>
+
+            <section class="insight-card">
+              <p class="eyebrow">Transcript insight</p>
+              <h3>Discount is blocking closure</h3>
+              <p>Client compared supplier price and asked whether delivery can be pulled forward by 3 days.</p>
+              <div class="action-row">
+                <button type="button">Send revised quote</button>
+                <button type="button">Set reminder</button>
+              </div>
+            </section>
+
+            <section class="timeline">
+              <h3>Audit trail</h3>
+              <div id="timeline-list">
+              <article>
+                <span></span>
+                <div>
+                  <strong>WhatsApp document sent</strong>
+                  <p>Quotation PDF shared by Rohit, 4:30 PM</p>
+                </div>
+              </article>
+              <article>
+                <span></span>
+                <div>
+                  <strong>Call transcript summarized</strong>
+                  <p>Asked for discount and delivery confirmation</p>
+                </div>
+              </article>
+              <article>
+                <span></span>
+                <div>
+                  <strong>Status changed</strong>
+                  <p>Document Sent to Negotiation Phase</p>
+                </div>
+              </article>
+              </div>
+            </section>
+          </section>
+
+          <section class="screen" id="screen-manager">
+            <div class="screen-heading">
+              <div>
+                <p class="eyebrow">Today, 6 June</p>
+                <h2>Manager analytics</h2>
+              </div>
+              <span class="pill">North team</span>
+            </div>
+
+            <section class="analytics-board">
+              <article>
+                <p>Missed follow-ups</p>
+                <strong id="manager-overdue">7</strong>
+                <span class="down">-3 vs yesterday</span>
+              </article>
+              <article>
+                <p>Quoted value</p>
+                <strong id="manager-quoted">₹12.4L</strong>
+                <span id="manager-payment">9 clients</span>
+              </article>
+              <article>
+                <p>Unlogged calls</p>
+                <strong id="manager-unlogged">11</strong>
+                <span class="danger">needs audit</span>
+              </article>
+            </section>
+
+            <section class="team-list">
+              <h3>Team heatmap</h3>
+              <div id="team-list">
+              <article>
+                <div>
+                  <strong>Rohit</strong>
+                  <p>31 calls, 4 overdue</p>
+                </div>
+                <meter min="0" max="100" value="68"></meter>
+              </article>
+              <article>
+                <div>
+                  <strong>Priya</strong>
+                  <p>22 calls, 1 overdue</p>
+                </div>
+                <meter min="0" max="100" value="86"></meter>
+              </article>
+              <article>
+                <div>
+                  <strong>Suresh</strong>
+                  <p>14 calls, 2 untagged</p>
+                </div>
+                <meter min="0" max="100" value="54"></meter>
+              </article>
+              </div>
+            </section>
+
+            <section class="digest-preview">
+              <p class="eyebrow">WhatsApp digest</p>
+              <h3>Ready for company head</h3>
+              <p id="digest-text">7 overdue follow-ups, 3 negotiation clients, 2 payment pending clients, 1 order confirmed.</p>
+              <button class="primary-action" type="button">Send digest</button>
+            </section>
+          </section>
+
+          <section class="screen" id="screen-finance">
+            <div class="screen-heading">
+              <div>
+                <p class="eyebrow">Receivables desk</p>
+                <h2>Finance follow-ups</h2>
+              </div>
+              <span class="pill money" id="finance-total">₹8.2L due</span>
+            </div>
+
+            <section class="receivable-list" id="receivable-list">
+              <article>
+                <div>
+                  <strong>Jain Plastics</strong>
+                  <p>Advance pending after order confirmation</p>
+                </div>
+                <span>₹2.4L</span>
+              </article>
+              <article>
+                <div>
+                  <strong>KM Distributors</strong>
+                  <p>Receipt requested for last payment</p>
+                </div>
+                <span>₹1.1L</span>
+              </article>
+              <article>
+                <div>
+                  <strong>ABC Traders</strong>
+                  <p>Negotiation active, payment terms discussed</p>
+                </div>
+                <span>₹4.7L</span>
+              </article>
+            </section>
+
+            <section class="message-composer">
+              <p class="eyebrow">Daily message</p>
+              <h3>Finance summary</h3>
+              <textarea rows="6" id="finance-message">Today receivable follow-up:
+1. Jain Plastics: call before 2 PM for advance.
+2. KM Distributors: send receipt copy.
+3. ABC Traders: confirm payment terms after revised quotation.</textarea>
+              <button class="primary-action" type="button">Share on WhatsApp</button>
+            </section>
+          </section>
+        </div>
+      </section>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>

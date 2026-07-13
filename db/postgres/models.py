@@ -2,13 +2,68 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timezone
 from typing import Any
+from uuid import UUID
 
-from sqlalchemy import BIGINT, Boolean, Date, DateTime, ForeignKey, Integer, Text, Time, func, text
+from sqlalchemy import BIGINT, Boolean, Date, DateTime, ForeignKey, Integer, Text, Time, Uuid, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
     pass
+
+
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = {"schema": "public"}
+
+    # The database migration keeps this constrained to auth.users(id). The ORM
+    # does not map Supabase's auth schema, so declaring that cross-schema FK here
+    # breaks flush ordering.
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    role: Mapped[str] = mapped_column(Text, nullable=False)
+    phone: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    contact: Mapped[str | None] = mapped_column(Text)
+    approval_status: Mapped[str] = mapped_column(Text, nullable=False, default="pending", server_default=text("'pending'"))
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+    verified_by: Mapped[UUID | None] = mapped_column(ForeignKey("public.users.id", ondelete="SET NULL"))
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rejection_reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    # Relationship to clients assigned to this user
+    assigned_clients: Mapped[list["Client"]] = relationship(
+        back_populates="assigned_user",
+        foreign_keys="Client.assigned_to",
+    )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": str(self.id),
+            "name": self.name,
+            "role": self.role,
+            "phone": self.phone,
+            "contact": self.contact,
+            "approval_status": self.approval_status,
+            "is_active": self.is_active,
+            "verified_by": str(self.verified_by) if self.verified_by else None,
+            "verified_at": self.verified_at,
+            "rejection_reason": self.rejection_reason,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
 
 
 class StatusMaster(Base):
@@ -56,7 +111,10 @@ class Client(Base):
     whatsapp_number: Mapped[str | None] = mapped_column(Text)
     email: Mapped[str | None] = mapped_column(Text)
     city: Mapped[str | None] = mapped_column(Text)
-    assigned_to: Mapped[str] = mapped_column(Text, nullable=False)
+    assigned_to: Mapped[UUID] = mapped_column(
+        ForeignKey("public.users.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
     current_status_no: Mapped[int] = mapped_column(
         ForeignKey("public.status_master.status_no"),
         nullable=False,
@@ -77,6 +135,10 @@ class Client(Base):
         onupdate=func.now(),
     )
 
+    assigned_user: Mapped[User] = relationship(
+        back_populates="assigned_clients",
+        foreign_keys=[assigned_to],
+    )
     current_status: Mapped[StatusMaster] = relationship(
         back_populates="clients",
         foreign_keys=[current_status_no],
@@ -103,7 +165,7 @@ class Client(Base):
             "whatsapp_number": self.whatsapp_number,
             "email": self.email,
             "city": self.city,
-            "assigned_to": self.assigned_to,
+            "assigned_to": str(self.assigned_to),
             "current_status_no": self.current_status_no,
             "requirement_summary": self.requirement_summary,
             "priority": self.priority,
