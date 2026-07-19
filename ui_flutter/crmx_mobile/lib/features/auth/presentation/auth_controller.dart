@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/cache/cache_service.dart';
+import '../../../services/api/api_client.dart';
 import '../data/auth_repository.dart';
 import '../data/supabase_auth_repository.dart';
 import '../domain/auth_state.dart';
@@ -9,9 +11,20 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return SupabaseAuthRepository();
 });
 
+final authCacheServiceProvider = Provider<CacheService>((ref) {
+  final authRepo = ref.read(authRepositoryProvider);
+  final apiClient = ApiClient(
+    tokenProvider: () => authRepo.getAccessToken(),
+  );
+  return CacheService(apiClient);
+});
+
 final authControllerProvider =
     StateNotifierProvider<AuthController, AuthState>((ref) {
-  return AuthController(ref.read(authRepositoryProvider));
+  return AuthController(
+    ref.read(authRepositoryProvider),
+    ref.read(authCacheServiceProvider),
+  );
 });
 
 final authUserProvider = StreamProvider<AuthUser?>((ref) async* {
@@ -32,9 +45,11 @@ final authUserProvider = StreamProvider<AuthUser?>((ref) async* {
 });
 
 class AuthController extends StateNotifier<AuthState> {
-  AuthController(this._authRepository) : super(const Unauthenticated());
+  AuthController(this._authRepository, this._cacheService)
+      : super(const Unauthenticated());
 
   final AuthRepository _authRepository;
+  final CacheService _cacheService;
 
   /// Send OTP to phone number
   Future<void> sendOtp(String phoneNumber) async {
@@ -89,6 +104,10 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       state = const Authenticating();
       await _authRepository.signOut();
+      
+      // Clear all caches on logout
+      _cacheService.clearAll();
+      
       state = const Unauthenticated();
     } on Exception catch (e) {
       state = AuthError(e.toString());
@@ -128,6 +147,9 @@ class AuthController extends StateNotifier<AuthState> {
     if (profile == null) {
       return SignupRequired(user);
     }
+
+    // Cache the current user profile
+    _cacheService.cacheCurrentUser(profile);
 
     return switch (profile.approvalStatus) {
       'approved' when profile.isActive => Authenticated(profile),

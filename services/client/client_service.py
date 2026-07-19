@@ -15,6 +15,25 @@ from services.client.client_repository import ClientRepository
 from services.client.client_update_repository import ClientUpdateRepository
 from services.status.status_repository import StatusRepository
 
+
+class ClientListItemResponse(BaseModel):
+    """Response model for a single client in the list."""
+    client_id: int
+    client_name: str
+    company_name: str | None
+    phone: str
+    whatsapp_number: str | None
+    email: str | None
+    city: str | None
+    assigned_to: str  # UUID as string
+    assigned_to_name: str  # User's name
+    current_status_no: int
+    current_status_name: str  # Status name
+    requirement_summary: str | None
+    priority: str
+    created_date: date
+    last_updated: datetime
+
 NON_NULLABLE_CLIENT_FIELDS = {
     "client_name",
     "phone",
@@ -79,14 +98,36 @@ class ClientService:
         self.status_repository = status_repository
 
     def list_clients(self) -> list[dict[str, Any]]:
-        return [client.to_dict() for client in self.client_repository.list_clients()]
+        clients = self.client_repository.list_clients_with_relations()
+        return [self._build_client_list_response(client) for client in clients]
 
     def search_clients(self, search_term: str) -> list[dict[str, Any]]:
         normalized_term = search_term.strip()
         if not normalized_term:
             return []
 
-        return [client.to_dict() for client in self.client_repository.search(normalized_term)]
+        clients = self.client_repository.search_with_relations(normalized_term)
+        return [self._build_client_list_response(client) for client in clients]
+
+    def _build_client_list_response(self, client: Client) -> dict[str, Any]:
+        """Build a client list response with joined user and status names."""
+        return {
+            "client_id": client.client_id,
+            "client_name": client.client_name,
+            "company_name": client.company_name,
+            "phone": client.phone,
+            "whatsapp_number": client.whatsapp_number,
+            "email": client.email,
+            "city": client.city,
+            "assigned_to": str(client.assigned_to),
+            "assigned_to_name": client.assigned_user.name if client.assigned_user else "Unknown",
+            "current_status_no": client.current_status_no,
+            "current_status_name": client.current_status.status_name if client.current_status else "Unknown",
+            "requirement_summary": client.requirement_summary,
+            "priority": client.priority,
+            "created_date": client.created_date,
+            "last_updated": client.last_updated,
+        }
 
     def create_client(self, payload: ClientCreateRequest) -> dict[str, Any]:
         self._ensure_status_exists(payload.current_status_no)

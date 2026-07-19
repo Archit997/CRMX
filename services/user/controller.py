@@ -85,6 +85,23 @@ class UserController:
             raise HTTPException(status_code=500, detail="Failed to fetch pending users") from exc
 
     @staticmethod
+    @router.get("/users/assignable")
+    async def list_assignable_users(
+        request: Request,
+        user_service: Annotated[UserService, Depends(get_user_service)],
+    ) -> list[dict]:
+        """List users who can be assigned to clients (approved, active, non-DEV role)."""
+        try:
+            return user_service.list_assignable_users()
+        except Exception as exc:
+            logger.log(
+                LOG_LEVEL_ERROR,
+                f"List assignable users failed for {request.method} {request.url.path}, error: {exc}",
+                exc_info=True,
+            )
+            raise HTTPException(status_code=500, detail="Failed to fetch assignable users") from exc
+
+    @staticmethod
     @router.get("/users")
     async def list_users(
         request: Request,

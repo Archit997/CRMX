@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/cache/cache_service.dart';
+import '../../features/clients/presentation/client_controller.dart';
 import '../data/crmx_repository.dart';
 import '../models/crmx_models.dart';
 import '../theme/app_theme.dart';
 
-class ClientDetailScreen extends StatefulWidget {
+class ClientDetailScreen extends ConsumerStatefulWidget {
   const ClientDetailScreen({
     required this.client,
     required this.statuses,
@@ -17,10 +20,11 @@ class ClientDetailScreen extends StatefulWidget {
   final CRMXRepository repository;
 
   @override
-  State<ClientDetailScreen> createState() => _ClientDetailScreenState();
+  ConsumerState<ClientDetailScreen> createState() =>
+      _ClientDetailScreenState();
 }
 
-class _ClientDetailScreenState extends State<ClientDetailScreen> {
+class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
   late int _currentStatusNo;
   bool _changingStatus = false;
   bool _isEditMode = false;
@@ -33,15 +37,20 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   late TextEditingController _whatsappController;
   late TextEditingController _emailController;
   late TextEditingController _cityController;
-  late TextEditingController _assignedToController;
   late TextEditingController _requirementController;
   late String _selectedPriority;
+  
+  // For assignable users dropdown
+  String? _selectedAssignedTo;
+  List<AssignableUser> _assignableUsers = [];
+  bool _loadingUsers = false;
 
   @override
   void initState() {
     super.initState();
     _currentStatusNo = widget.client.currentStatusNo;
     _selectedPriority = widget.client.priority;
+    _selectedAssignedTo = widget.client.assignedTo;
 
     // Initialize controllers with current values
     _clientNameController =
@@ -53,10 +62,34 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         TextEditingController(text: widget.client.whatsappNumber);
     _emailController = TextEditingController(text: widget.client.email);
     _cityController = TextEditingController(text: widget.client.city);
-    _assignedToController =
-        TextEditingController(text: widget.client.assignedTo);
     _requirementController =
         TextEditingController(text: widget.client.requirementSummary);
+  }
+
+  Future<void> _loadAssignableUsers() async {
+    setState(() => _loadingUsers = true);
+    try {
+      final users = await ref
+          .read(clientControllerProvider.notifier)
+          .getAssignableUsers();
+
+      if (mounted) {
+        setState(() {
+          _assignableUsers = users;
+          _loadingUsers = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingUsers = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load users: $e'),
+            backgroundColor: AppTheme.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -67,7 +100,6 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     _whatsappController.dispose();
     _emailController.dispose();
     _cityController.dispose();
-    _assignedToController.dispose();
     _requirementController.dispose();
     super.dispose();
   }
@@ -139,7 +171,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     _whatsappController.text = widget.client.whatsappNumber;
     _emailController.text = widget.client.email;
     _cityController.text = widget.client.city;
-    _assignedToController.text = widget.client.assignedTo;
+    _selectedAssignedTo = widget.client.assignedTo;
     _requirementController.text = widget.client.requirementSummary;
     _selectedPriority = widget.client.priority;
     _currentStatusNo = widget.client.currentStatusNo;
@@ -180,7 +212,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       return;
     }
 
-    if (_assignedToController.text.trim().isEmpty) {
+    if (_selectedAssignedTo == null || _selectedAssignedTo!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Assigned to is required'),
@@ -216,8 +248,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       if (_cityController.text.trim() != widget.client.city) {
         updates['city'] = _cityController.text.trim();
       }
-      if (_assignedToController.text.trim() != widget.client.assignedTo) {
-        updates['assigned_to'] = _assignedToController.text.trim();
+      if (_selectedAssignedTo != widget.client.assignedTo) {
+        updates['assigned_to'] = _selectedAssignedTo!;
       }
       if (_requirementController.text.trim() !=
           widget.client.requirementSummary) {
@@ -291,7 +323,10 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
           ] else
             IconButton(
               icon: const Icon(Icons.edit),
-              onPressed: () => setState(() => _isEditMode = true),
+              onPressed: () {
+                setState(() => _isEditMode = true);
+                _loadAssignableUsers();
+              },
               tooltip: 'Edit Client',
             ),
         ],
@@ -761,12 +796,32 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              TextField(
-                controller: _assignedToController,
+              DropdownButtonFormField<String>(
+                value: _selectedAssignedTo,
                 decoration: const InputDecoration(
                   labelText: 'Assigned To *',
                   prefixIcon: Icon(Icons.person_outline),
                 ),
+                items: _loadingUsers
+                    ? []
+                    : _assignableUsers.map((user) {
+                        return DropdownMenuItem<String>(
+                          value: user.id,
+                          child: Text(user.name),
+                        );
+                      }).toList(),
+                onChanged: _loadingUsers
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          setState(() {
+                            _selectedAssignedTo = value;
+                          });
+                        }
+                      },
+                hint: _loadingUsers
+                    ? const Text('Loading users...')
+                    : const Text('Select a user'),
               ),
               const SizedBox(height: 16),
               TextField(
@@ -803,7 +858,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
               widget.client.city.isEmpty ? 'Not provided' : widget.client.city,
             ),
             const Divider(height: 24),
-            _buildDetailRow('Assigned To', widget.client.assignedTo),
+            _buildDetailRow('Assigned To', widget.client.assignedToName),
             const Divider(height: 24),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,

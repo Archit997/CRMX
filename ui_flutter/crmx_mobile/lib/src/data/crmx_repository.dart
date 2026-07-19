@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/crmx_models.dart';
-import 'mock_data.dart';
 
 class CRMXRepository {
   CRMXRepository({
@@ -41,76 +40,65 @@ class CRMXRepository {
   }
 
   Future<DashboardData> loadDashboard() async {
-    try {
-      // Only call Postgres endpoints that exist
-      final results = await Future.wait([
-        _getList('/master-status'), // Postgres statuses ✅
-        _getList('/client-list'), // Postgres clients ✅
-        // Removed: followups, analytics, finance - not implemented in Postgres yet
-      ]);
+    // Only call Postgres endpoints that exist
+    final results = await Future.wait([
+      _getList('/master-status'), // Postgres statuses ✅
+      _getList('/client-list'), // Postgres clients ✅
+      // Removed: followups, analytics, finance - not implemented in Postgres yet
+    ]);
 
-      final statuses = results[0]
-          .map((item) => StatusMaster.fromJson(item as Map<String, dynamic>))
-          .toList();
+    final statuses = results[0]
+        .map((item) => StatusMaster.fromJson(item as Map<String, dynamic>))
+        .toList();
 
-      final clientsRaw = results[1];
+    final clientsRaw = results[1];
 
-      // Join status names with clients (Postgres endpoint doesn't include status_name)
-      final clients = clientsRaw.map((item) {
-        final clientMap = item as Map<String, dynamic>;
-        final statusNo = clientMap['current_status_no'] as int;
-        final status = statuses.firstWhere(
-          (s) => s.statusNo == statusNo,
-          orElse: () => StatusMaster(
-            statusNo: statusNo,
-            statusName: 'Unknown',
-            category: '',
-            description: '',
-          ),
-        );
-
-        // Add missing fields for compatibility
-        clientMap['status_name'] = status.statusName;
-        clientMap['status_category'] = status.category;
-        clientMap['deal_value'] = clientMap['deal_value'] ?? 0;
-
-        return ClientInfo.fromJson(clientMap);
-      }).toList();
-
-      print('✅ Successfully loaded data from Postgres API: $_apiBaseUrl');
-      print('   Loaded ${clients.length} clients from /client-list');
-      print('   Loaded ${statuses.length} statuses from /master-status');
-
-      return DashboardData(
-        statuses: statuses,
-        clients: clients,
-        followUps: [], // Empty - not implemented yet
-        manager: const ManagerSummary(
-          calls: 0,
-          whatsapp: 0,
-          overdueFollowups: 0,
-          quotedValue: 0,
-          unloggedCalls: 0,
-        ), // Empty - not implemented yet
-        receivables: [], // Empty - not implemented yet
-        financeMessage: '', // Empty - not implemented yet
-        source: DataSource.api,
+    // Join status names with clients (Postgres endpoint doesn't include status_name)
+    final clients = clientsRaw.map((item) {
+      final clientMap = item as Map<String, dynamic>;
+      final statusNo = clientMap['current_status_no'] as int;
+      final status = statuses.firstWhere(
+        (s) => s.statusNo == statusNo,
+        orElse: () => StatusMaster(
+          statusNo: statusNo,
+          statusName: 'Unknown',
+          category: '',
+          description: '',
+        ),
       );
-    } catch (e) {
-      print('❌ API call failed: $e');
-      print('⚠️  Falling back to mock data');
-      print('   API URL was: $_apiBaseUrl');
-      return MockData.dashboard;
-    }
+
+      // Add missing fields for compatibility
+      clientMap['status_name'] = status.statusName;
+      clientMap['status_category'] = status.category;
+      clientMap['deal_value'] = clientMap['deal_value'] ?? 0;
+
+      return ClientInfo.fromJson(clientMap);
+    }).toList();
+
+    print('✅ Successfully loaded data from Postgres API: $_apiBaseUrl');
+    print('   Loaded ${clients.length} clients from /client-list');
+    print('   Loaded ${statuses.length} statuses from /master-status');
+
+    return DashboardData(
+      statuses: statuses,
+      clients: clients,
+      followUps: [], // Empty - not implemented yet
+      manager: const ManagerSummary(
+        calls: 0,
+        whatsapp: 0,
+        overdueFollowups: 0,
+        quotedValue: 0,
+        unloggedCalls: 0,
+      ), // Empty - not implemented yet
+      receivables: [], // Empty - not implemented yet
+      financeMessage: '', // Empty - not implemented yet
+      source: DataSource.api,
+    );
   }
 
   Future<ClientInfo> loadClient(int clientId) async {
-    try {
-      final json = await _getMap('/clients/$clientId');
-      return ClientInfo.fromJson(json);
-    } catch (_) {
-      return MockData.dashboard.clients.first;
-    }
+    final json = await _getMap('/clients/$clientId');
+    return ClientInfo.fromJson(json);
   }
 
   Future<List<ClientInfo>> searchClients(String query) async {

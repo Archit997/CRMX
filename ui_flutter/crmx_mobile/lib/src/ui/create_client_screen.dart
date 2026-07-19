@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/cache/cache_service.dart';
 import '../../features/auth/domain/auth_user.dart';
+import '../../features/clients/presentation/client_controller.dart';
 import '../models/crmx_models.dart';
 import '../theme/app_theme.dart';
 
-class CreateClientScreen extends StatefulWidget {
+class CreateClientScreen extends ConsumerStatefulWidget {
   const CreateClientScreen({
     required this.statuses,
     required this.currentUser,
@@ -15,10 +18,11 @@ class CreateClientScreen extends StatefulWidget {
   final AuthUser currentUser;
 
   @override
-  State<CreateClientScreen> createState() => _CreateClientScreenState();
+  ConsumerState<CreateClientScreen> createState() =>
+      _CreateClientScreenState();
 }
 
-class _CreateClientScreenState extends State<CreateClientScreen> {
+class _CreateClientScreenState extends ConsumerState<CreateClientScreen> {
   final _formKey = GlobalKey<FormState>();
   final _clientNameController = TextEditingController();
   final _companyNameController = TextEditingController();
@@ -30,6 +34,49 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
 
   int _selectedStatusNo = 1; // Default: New Lead
   String _selectedPriority = 'Warm'; // Default: Warm
+  String? _selectedAssignedTo; // UUID of selected user
+  List<AssignableUser> _assignableUsers = [];
+  bool _loadingUsers = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAssignableUsers();
+  }
+
+  Future<void> _loadAssignableUsers() async {
+    try {
+      final users = await ref
+          .read(clientControllerProvider.notifier)
+          .getAssignableUsers();
+
+      if (mounted) {
+        setState(() {
+          _assignableUsers = users;
+          _loadingUsers = false;
+          // Default to current user if available
+          _selectedAssignedTo = users
+              .firstWhere(
+                (u) => u.id == widget.currentUser.id,
+                orElse: () => users.isNotEmpty ? users.first : const AssignableUser(id: '', name: ''),
+              )
+              .id;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadingUsers = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load users: $e'),
+            backgroundColor: AppTheme.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -151,37 +198,46 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Assigned To (current signed-in user)
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                border: Border.all(color: AppTheme.line),
-                borderRadius: BorderRadius.circular(8),
+            // Assigned To Dropdown
+            DropdownButtonFormField<String>(
+              value: _selectedAssignedTo,
+              decoration: const InputDecoration(
+                labelText: 'Assigned To',
+                prefixIcon: Icon(Icons.person_outline),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.person_outline, color: AppTheme.muted),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Assigned to',
+              items: _loadingUsers
+                  ? []
+                  : _assignableUsers.map((user) {
+                      return DropdownMenuItem<String>(
+                        value: user.id,
+                        child: Text(
+                          user.name,
                           style: TextStyle(
-                              color: AppTheme.muted,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700),
+                            fontWeight: user.id == widget.currentUser.id
+                                ? FontWeight.w900
+                                : FontWeight.normal,
+                          ),
                         ),
-                        Text(
-                          widget.currentUser.name ?? widget.currentUser.phone,
-                          style: const TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                      );
+                    }).toList(),
+              onChanged: _loadingUsers
+                  ? null
+                  : (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedAssignedTo = value;
+                        });
+                      }
+                    },
+              hint: _loadingUsers
+                  ? const Text('Loading users...')
+                  : const Text('Select a user'),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please select a user to assign';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 16),
 
@@ -274,6 +330,16 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
       return;
     }
 
+    if (_selectedAssignedTo == null || _selectedAssignedTo!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a user to assign'),
+          backgroundColor: AppTheme.red,
+        ),
+      );
+      return;
+    }
+
     // Get created_date as today's date
     final now = DateTime.now();
     final createdDate =
@@ -291,7 +357,7 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
       'whatsapp_number': whatsapp,
       'email': _emailController.text.trim(),
       'city': _cityController.text.trim(),
-      'assigned_to': widget.currentUser.id,
+      'assigned_to': _selectedAssignedTo!,
       'current_status_no': _selectedStatusNo,
       'requirement_summary': _requirementController.text.trim(),
       'priority': _selectedPriority,

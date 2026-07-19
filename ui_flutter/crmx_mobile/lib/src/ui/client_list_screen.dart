@@ -245,8 +245,8 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
   }
 
   bool get _canVerifyUsers =>
-      widget.currentUser.role == 'manager' ||
-      widget.currentUser.role == 'admin';
+      widget.currentUser.role == 'MANAGER' ||
+      widget.currentUser.role == 'ADMIN';
 
   void _openPendingApprovals() {
     Navigator.push(
@@ -523,7 +523,7 @@ class ClientListCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Assigned to: ${client.assignedTo}',
+                      'Assigned to: ${client.assignedToName}',
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,

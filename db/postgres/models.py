@@ -1,15 +1,24 @@
 from __future__ import annotations
 
+import enum
 from datetime import date, datetime, time, timezone
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import BIGINT, Boolean, Date, DateTime, ForeignKey, Integer, Text, Time, Uuid, func, text
+from sqlalchemy import BIGINT, Boolean, Date, DateTime, Enum, ForeignKey, Integer, Text, Time, Uuid, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
     pass
+
+
+class UserRole(enum.Enum):
+    """User role enumeration."""
+    ADMIN = "ADMIN"
+    MANAGER = "MANAGER"
+    DEV = "DEV"
+    EMPLOYEE = "EMPLOYEE"
 
 
 class User(Base):
@@ -21,7 +30,7 @@ class User(Base):
     # breaks flush ordering.
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
     name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
-    role: Mapped[str] = mapped_column(Text, nullable=False)
+    role: Mapped[UserRole] = mapped_column(Enum(UserRole, native_enum=False), nullable=False)
     phone: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     contact: Mapped[str | None] = mapped_column(Text)
     approval_status: Mapped[str] = mapped_column(Text, nullable=False, default="pending", server_default=text("'pending'"))
@@ -53,7 +62,7 @@ class User(Base):
         return {
             "id": str(self.id),
             "name": self.name,
-            "role": self.role,
+            "role": self.role.value,  # Convert enum to string value
             "phone": self.phone,
             "contact": self.contact,
             "approval_status": self.approval_status,
