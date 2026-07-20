@@ -60,7 +60,7 @@ class SupabaseAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<AuthUser?> getAppProfile(AuthUser user) async {
+  Future<AuthUser?> getAppProfile(AuthUser user, {bool forceRefresh = false}) async {
     try {
       final response = await http.get(
         Uri.parse('$_backendBaseUrl/auth/profile/${user.id}'),

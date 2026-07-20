@@ -7,4 +7,5 @@ pymongo
 python-dotenv
 requests
 SQLAlchemy
+supabase
 uvicorn

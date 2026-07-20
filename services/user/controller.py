@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from services.auth.jwt_utils import assert_supabase_user_matches_request
 from services.postgres.dependencies import get_user_service
 from services.user.user_service import (
     SignupRequest,
@@ -15,7 +16,6 @@ from services.user.user_service import (
 )
 from utils.constants import LOG_LEVEL_ERROR
 from utils.logger import AppLogger
-from utils.supabase_jwt import assert_supabase_user_matches_request
 
 logger = AppLogger.get_logger(__name__)
 

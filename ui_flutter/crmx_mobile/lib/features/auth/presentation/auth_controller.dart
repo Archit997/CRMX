@@ -2,21 +2,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/cache/cache_service.dart';
 import '../../../services/api/api_client.dart';
 import '../data/auth_repository.dart';
-import '../data/supabase_auth_repository.dart';
+import '../data/backend_auth_repository.dart';
 import '../domain/auth_state.dart';
 import '../domain/auth_user.dart';
 
 // Providers
-final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return SupabaseAuthRepository();
-});
 
-final authCacheServiceProvider = Provider<CacheService>((ref) {
-  final authRepo = ref.read(authRepositoryProvider);
+/// Provider for cache service (used by auth repository)
+/// Note: This is created first without token provider to avoid circular dependency
+final baseCacheServiceProvider = Provider<CacheService>((ref) {
+  // Create a simple API client for cache service
+  // The auth token will be provided by the repository after login
   final apiClient = ApiClient(
-    tokenProvider: () => authRepo.getAccessToken(),
+    tokenProvider: () async => ref.read(baseCacheServiceProvider).getCachedAuthToken(),
   );
   return CacheService(apiClient);
+});
+
+/// Provider for auth repository using backend API
+final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  final cacheService = ref.read(baseCacheServiceProvider);
+  return BackendAuthRepository(cacheService);
+});
+
+/// Alias for auth cache service (for backward compatibility)
+final authCacheServiceProvider = Provider<CacheService>((ref) {
+  return ref.read(baseCacheServiceProvider);
 });
 
 final authControllerProvider =
@@ -133,6 +144,35 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
+  /// Check approval status with fresh data from backend
+  /// 
+  /// This method is specifically for when a user on the approval pending screen
+  /// clicks "Check again" - it bypasses cache to get the latest approval status
+  /// from the backend in case an admin just approved/rejected them.
+  Future<void> checkApprovalStatus() async {
+    try {
+      state = const Authenticating();
+      
+      // Invalidate cached user data to force fresh fetch
+      _cacheService.invalidateCurrentUserData();
+      
+      final isAuthenticated = await _authRepository.isAuthenticated();
+      if (isAuthenticated) {
+        final user = await _authRepository.getCurrentUser();
+        if (user != null) {
+          // Force refresh to bypass cache and get fresh approval status
+          state = await _stateForUser(user, forceRefresh: true);
+        } else {
+          state = const Unauthenticated();
+        }
+      } else {
+        state = const Unauthenticated();
+      }
+    } catch (e) {
+      state = const Unauthenticated();
+    }
+  }
+
   /// Refresh session
   Future<void> refreshSession() async {
     try {
@@ -142,14 +182,14 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
-  Future<AuthState> _stateForUser(AuthUser user) async {
-    final profile = await _authRepository.getAppProfile(user);
+  Future<AuthState> _stateForUser(AuthUser user, {bool forceRefresh = false}) async {
+    final profile = await _authRepository.getAppProfile(user, forceRefresh: forceRefresh);
     if (profile == null) {
       return SignupRequired(user);
     }
 
-    // Cache the current user profile
-    _cacheService.cacheCurrentUser(profile);
+    // Cache the current user data (no longer caching AuthUser object, just data)
+    _cacheService.cacheCurrentUserData(profile.toMap());
 
     return switch (profile.approvalStatus) {
       'approved' when profile.isActive => Authenticated(profile),

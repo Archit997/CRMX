@@ -9,6 +9,14 @@ class CacheConfig {
   // TTL (Time To Live) Durations
   // ============================================================================
 
+  /// How long to cache authentication token
+  /// Tokens should be refreshed periodically for security
+  static const Duration authTokenTTL = Duration(minutes: 10);
+
+  /// How long to cache current user data
+  /// User data changes infrequently during active session
+  static const Duration currentUserDataTTL = Duration(minutes: 10);
+
   /// How long to cache assignable users list
   /// Users change infrequently, safe to cache for 5 minutes
   static const Duration assignableUsersTTL = Duration(minutes: 5);
@@ -16,10 +24,6 @@ class CacheConfig {
   /// How long to cache status master list
   /// Statuses rarely change, can be cached for the entire session
   static const Duration statusMasterTTL = Duration(hours: 24);
-
-  /// How long to cache current user profile
-  /// User profile doesn't change during session
-  static const Duration currentUserTTL = Duration(hours: 24);
 
   // ============================================================================
   // Auto-Refresh Intervals
@@ -37,9 +41,11 @@ class CacheConfig {
   // Cache Keys
   // ============================================================================
 
+  static const String authTokenKey = 'cache:auth_token';
+  static const String authRefreshTokenKey = 'cache:auth_refresh_token';
+  static const String currentUserDataKey = 'cache:current_user_data';
   static const String assignableUsersKey = 'cache:assignable_users';
   static const String statusMasterKey = 'cache:status_master';
-  static const String currentUserKey = 'cache:current_user';
 
   // ============================================================================
   // Cache Behavior Flags

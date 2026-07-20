@@ -9,6 +9,7 @@ from pathlib import Path
 
 from db.postgres import PostgresDB
 
+from services.auth.controller import auth_router
 from services.client.controller import client_router
 from services.postgres import PostgresService, postgres_router
 from services.status.controller import status_router
@@ -70,6 +71,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
 app.include_router(postgres_router)
 app.include_router(client_router)
 app.include_router(status_router)

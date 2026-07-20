@@ -20,6 +20,72 @@ class CacheService {
   final _cache = CacheManager.instance;
 
   // ==========================================================================
+  // Authentication Token & User Data
+  // ==========================================================================
+
+  /// Cache authentication token
+  void cacheAuthToken(String token) {
+    _cache.set(
+      CacheConfig.authTokenKey,
+      token,
+      ttl: CacheConfig.authTokenTTL,
+    );
+  }
+
+  /// Get cached authentication token
+  String? getCachedAuthToken() {
+    final cached = _cache.get<String>(CacheConfig.authTokenKey);
+    return cached.isHit ? cached.data : null;
+  }
+
+  /// Cache refresh token
+  void cacheRefreshToken(String refreshToken) {
+    _cache.set(
+      CacheConfig.authRefreshTokenKey,
+      refreshToken,
+      ttl: CacheConfig.authTokenTTL,
+    );
+  }
+
+  /// Get cached refresh token
+  String? getCachedRefreshToken() {
+    final cached = _cache.get<String>(CacheConfig.authRefreshTokenKey);
+    return cached.isHit ? cached.data : null;
+  }
+
+  /// Cache current user data
+  void cacheCurrentUserData(Map<String, dynamic> userData) {
+    _cache.set(
+      CacheConfig.currentUserDataKey,
+      userData,
+      ttl: CacheConfig.currentUserDataTTL,
+    );
+  }
+
+  /// Get cached current user data
+  Map<String, dynamic>? getCachedCurrentUserData() {
+    final cached = _cache.get<Map<String, dynamic>>(
+      CacheConfig.currentUserDataKey,
+    );
+    return cached.isHit ? cached.data : null;
+  }
+
+  /// Invalidate auth token cache
+  void invalidateAuthToken() {
+    _cache.invalidate(CacheConfig.authTokenKey);
+  }
+
+  /// Invalidate refresh token cache
+  void invalidateRefreshToken() {
+    _cache.invalidate(CacheConfig.authRefreshTokenKey);
+  }
+
+  /// Invalidate current user data cache
+  void invalidateCurrentUserData() {
+    _cache.invalidate(CacheConfig.currentUserDataKey);
+  }
+
+  // ==========================================================================
   // Assignable Users
   // ==========================================================================
 
@@ -100,31 +166,7 @@ class CacheService {
   }
 
   // ==========================================================================
-  // Current User
-  // ==========================================================================
-
-  /// Cache current user profile
-  void cacheCurrentUser(AuthUser user) {
-    _cache.set(
-      CacheConfig.currentUserKey,
-      user,
-      ttl: CacheConfig.currentUserTTL,
-    );
-  }
-
-  /// Get cached current user
-  AuthUser? getCachedCurrentUser() {
-    final cached = _cache.get<AuthUser>(CacheConfig.currentUserKey);
-    return cached.isHit ? cached.data : null;
-  }
-
-  /// Invalidate current user cache
-  void invalidateCurrentUser() {
-    _cache.invalidate(CacheConfig.currentUserKey);
-  }
-
-  // ==========================================================================
-  // Cache Management
+  // Status Master
   // ==========================================================================
 
   /// Clear all caches (e.g., on logout)

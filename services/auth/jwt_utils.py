@@ -1,3 +1,5 @@
+"""JWT token validation utilities for Supabase authentication."""
+
 from __future__ import annotations
 
 import base64
@@ -44,7 +46,57 @@ def assert_supabase_user_matches_request(request: Request, requested_user_id: UU
         )
 
 
+def get_user_id_from_token(request: Request) -> UUID:
+    """Extract and return user ID from Supabase JWT token.
+    
+    This function always validates the token and extracts the user ID.
+    
+    Args:
+        request: FastAPI request object with Authorization header
+        
+    Returns:
+        UUID: User ID from token
+        
+    Raises:
+        HTTPException(401): Missing or invalid token
+    """
+    auth_header = request.headers.get("authorization", "")
+    scheme, _, token = auth_header.partition(" ")
+    
+    if scheme.lower() != "bearer" or not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authentication token",
+        )
+    
+    jwt_secret = EnvVars.get("SUPABASE_JWT_SECRET")
+    if not jwt_secret:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server configuration error",
+        )
+    
+    try:
+        payload = _decode_and_verify_hs256(token, jwt_secret)
+        user_id = payload.get("sub")
+        
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token: missing user ID",
+            )
+        
+        return UUID(user_id)
+        
+    except (ValueError, KeyError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token format",
+        ) from e
+
+
 def _decode_and_verify_hs256(token: str, secret: str) -> dict:
+    """Decode and verify HS256 JWT token."""
     parts = token.split(".")
     if len(parts) != 3:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid JWT")
@@ -62,5 +114,6 @@ def _decode_and_verify_hs256(token: str, secret: str) -> dict:
 
 
 def _b64url_decode(value: str) -> bytes:
+    """Decode base64url encoded string."""
     padded = value + "=" * (-len(value) % 4)
     return base64.urlsafe_b64decode(padded.encode("utf-8"))

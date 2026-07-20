@@ -63,7 +63,7 @@ class ApprovalStatusScreen extends ConsumerWidget {
             const SizedBox(height: 18),
             FilledButton.icon(
               onPressed: () =>
-                  ref.read(authControllerProvider.notifier).checkSession(),
+                  ref.read(authControllerProvider.notifier).checkApprovalStatus(),
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Check again'),
             ),
