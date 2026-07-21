@@ -4,15 +4,20 @@ import '../../core/config/app_config.dart';
 import '../../core/errors/app_exception.dart';
 
 typedef TokenProvider = Future<String?> Function();
+typedef RefreshTokenCallback = Future<void> Function();
 
 class ApiClient {
   ApiClient({
     http.Client? client,
     required this.tokenProvider,
+    this.refreshTokenCallback,
   }) : _client = client ?? http.Client();
 
   final http.Client _client;
   final TokenProvider tokenProvider;
+  final RefreshTokenCallback? refreshTokenCallback;
+  
+  bool _isRefreshing = false;
 
   String get _baseUrl => AppConfig.backendBaseUrl;
 
@@ -21,6 +26,7 @@ class ApiClient {
     String endpoint, {
     Map<String, String>? queryParams,
     bool requiresAuth = true,
+    bool retryOnUnauthorized = true,
   }) async {
     final uri = _buildUri(endpoint, queryParams);
     final headers = await _buildHeaders(requiresAuth: requiresAuth);
@@ -32,6 +38,28 @@ class ApiClient {
 
       return _handleResponse(response);
     } catch (e) {
+      // Retry once with token refresh if 401 and not already refreshing
+      if (e is UnauthorizedException && 
+          retryOnUnauthorized && 
+          !_isRefreshing && 
+          refreshTokenCallback != null) {
+        _isRefreshing = true;
+        try {
+          await refreshTokenCallback!();
+          _isRefreshing = false;
+          
+          // Retry the request with new token
+          final newHeaders = await _buildHeaders(requiresAuth: requiresAuth);
+          final retryResponse = await _client
+              .get(uri, headers: newHeaders)
+              .timeout(AppConfig.apiTimeout);
+          
+          return _handleResponse(retryResponse);
+        } catch (refreshError) {
+          _isRefreshing = false;
+          throw _handleError(refreshError);
+        }
+      }
       throw _handleError(e);
     }
   }
@@ -41,6 +69,7 @@ class ApiClient {
     String endpoint, {
     Map<String, dynamic>? body,
     bool requiresAuth = true,
+    bool retryOnUnauthorized = true,
   }) async {
     final uri = _buildUri(endpoint);
     final headers = await _buildHeaders(requiresAuth: requiresAuth);
@@ -56,6 +85,32 @@ class ApiClient {
 
       return _handleResponse(response);
     } catch (e) {
+      // Retry once with token refresh if 401 and not already refreshing
+      if (e is UnauthorizedException && 
+          retryOnUnauthorized && 
+          !_isRefreshing && 
+          refreshTokenCallback != null) {
+        _isRefreshing = true;
+        try {
+          await refreshTokenCallback!();
+          _isRefreshing = false;
+          
+          // Retry the request with new token
+          final newHeaders = await _buildHeaders(requiresAuth: requiresAuth);
+          final retryResponse = await _client
+              .post(
+                uri,
+                headers: newHeaders,
+                body: body != null ? jsonEncode(body) : null,
+              )
+              .timeout(AppConfig.apiTimeout);
+          
+          return _handleResponse(retryResponse);
+        } catch (refreshError) {
+          _isRefreshing = false;
+          throw _handleError(refreshError);
+        }
+      }
       throw _handleError(e);
     }
   }
@@ -65,6 +120,7 @@ class ApiClient {
     String endpoint, {
     Map<String, dynamic>? body,
     bool requiresAuth = true,
+    bool retryOnUnauthorized = true,
   }) async {
     final uri = _buildUri(endpoint);
     final headers = await _buildHeaders(requiresAuth: requiresAuth);
@@ -80,6 +136,32 @@ class ApiClient {
 
       return _handleResponse(response);
     } catch (e) {
+      // Retry once with token refresh if 401 and not already refreshing
+      if (e is UnauthorizedException && 
+          retryOnUnauthorized && 
+          !_isRefreshing && 
+          refreshTokenCallback != null) {
+        _isRefreshing = true;
+        try {
+          await refreshTokenCallback!();
+          _isRefreshing = false;
+          
+          // Retry the request with new token
+          final newHeaders = await _buildHeaders(requiresAuth: requiresAuth);
+          final retryResponse = await _client
+              .patch(
+                uri,
+                headers: newHeaders,
+                body: body != null ? jsonEncode(body) : null,
+              )
+              .timeout(AppConfig.apiTimeout);
+          
+          return _handleResponse(retryResponse);
+        } catch (refreshError) {
+          _isRefreshing = false;
+          throw _handleError(refreshError);
+        }
+      }
       throw _handleError(e);
     }
   }
@@ -89,6 +171,7 @@ class ApiClient {
     String endpoint, {
     Map<String, String>? queryParams,
     bool requiresAuth = true,
+    bool retryOnUnauthorized = true,
   }) async {
     final uri = _buildUri(endpoint, queryParams);
     final headers = await _buildHeaders(requiresAuth: requiresAuth);
@@ -100,6 +183,28 @@ class ApiClient {
 
       return _handleResponse(response);
     } catch (e) {
+      // Retry once with token refresh if 401 and not already refreshing
+      if (e is UnauthorizedException && 
+          retryOnUnauthorized && 
+          !_isRefreshing && 
+          refreshTokenCallback != null) {
+        _isRefreshing = true;
+        try {
+          await refreshTokenCallback!();
+          _isRefreshing = false;
+          
+          // Retry the request with new token
+          final newHeaders = await _buildHeaders(requiresAuth: requiresAuth);
+          final retryResponse = await _client
+              .delete(uri, headers: newHeaders)
+              .timeout(AppConfig.apiTimeout);
+          
+          return _handleResponse(retryResponse);
+        } catch (refreshError) {
+          _isRefreshing = false;
+          throw _handleError(refreshError);
+        }
+      }
       throw _handleError(e);
     }
   }

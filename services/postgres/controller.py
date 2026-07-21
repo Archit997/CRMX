@@ -1,5 +1,8 @@
-from fastapi import APIRouter, HTTPException, Request
+from typing import Annotated
 
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from services.auth.dependencies import require_developer
 from services.postgres.constants import POSTGRES_ROUTE_PREFIX, POSTGRES_ROUTE_TAG
 from services.postgres.postgres_service import PostgresService
 from utils.constants import LOG_LEVEL_ERROR
@@ -17,7 +20,15 @@ class PostgresController:
 
     @staticmethod
     @router.get("/health")
-    async def health(request: Request) -> dict:
+    async def health(
+        request: Request,
+        dev: Annotated[dict, Depends(require_developer)],
+    ) -> dict:
+        """
+        Check PostgreSQL database health.
+        
+        Access: DEV (Developer) role only
+        """
         try:
             return PostgresController._postgres_service(request).health()
         except Exception as exc:

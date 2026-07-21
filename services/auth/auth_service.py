@@ -222,3 +222,82 @@ class AuthService:
         Examples: +919876543210, +1234567890
         """
         return bool(re.match(PHONE_REGEX_PATTERN, phone))
+
+    async def refresh_access_token(self, refresh_token: str) -> dict[str, Any]:
+        """
+        Refresh access token using refresh token.
+        
+        This allows users to get a new access token without re-authenticating.
+        
+        Args:
+            refresh_token: The refresh token from previous authentication
+            
+        Returns:
+            {
+                "token": "new_jwt_token",
+                "refresh_token": "new_refresh_token",
+                "token_type": "bearer",
+                "expires_in": 3600
+            }
+            
+        Raises:
+            HTTPException(401): Invalid or expired refresh token
+        """
+        try:
+            # Call Supabase to refresh the session
+            response = self.supabase.auth.refresh_session(refresh_token)
+            
+            if not response.session:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid refresh token",
+                )
+            
+            session = response.session
+            user_id = UUID(response.user.id)
+            
+            # Verify user still exists and is approved/active
+            try:
+                postgres_user = self.user_service.get_user(user_id)
+            except LookupError:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+            
+            # Check approval and active status
+            if postgres_user.get("approval_status") != "approved":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Account not approved",
+                )
+            
+            if not postgres_user.get("is_active"):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Account is inactive",
+                )
+            
+            logger.log(LOG_LEVEL_INFO, f"Token refreshed successfully for user {user_id}")
+            
+            return {
+                "token": session.access_token,
+                "refresh_token": session.refresh_token,
+                "token_type": "bearer",
+                "expires_in": session.expires_in,
+            }
+            
+        except HTTPException:
+            raise
+        
+        except Exception as e:
+            logger.log(
+                LOG_LEVEL_ERROR,
+                f"Failed to refresh token: {e}",
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token refresh failed",
+            ) from e
+

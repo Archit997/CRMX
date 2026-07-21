@@ -283,11 +283,35 @@ class BackendAuthRepository implements AuthRepository {
 
   @override
   Future<void> refreshSession() async {
-    // TODO: Implement token refresh if needed
-    // For now, just check if token exists
-    final token = _cacheService.getCachedAuthToken();
-    if (token == null) {
-      throw const AuthException('No active session');
+    final refreshToken = _cacheService.getCachedRefreshToken();
+    if (refreshToken == null) {
+      throw const AuthException('No refresh token available');
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_backendBaseUrl/api/auth/refresh'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'refresh_token': refreshToken}),
+      );
+
+      if (response.statusCode != 200) {
+        throw const AuthException('Token refresh failed');
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      // Cache new tokens
+      final newToken = data['token'] as String;
+      final newRefreshToken = data['refresh_token'] as String;
+
+      _cacheService.cacheAuthToken(newToken);
+      _cacheService.cacheRefreshToken(newRefreshToken);
+    } catch (e) {
+      // Clear invalid tokens
+      _cacheService.invalidateAuthToken();
+      _cacheService.invalidateRefreshToken();
+      throw AuthException('Failed to refresh session: ${e.toString()}');
     }
   }
 

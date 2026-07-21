@@ -6,9 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from services.auth.auth_service import AuthService
-from services.auth.jwt_utils import get_user_id_from_token
-from services.postgres.dependencies import get_auth_service, get_user_service
-from services.user.user_service import UserService
+from services.auth.dependencies import get_current_user
+from services.postgres.dependencies import get_auth_service
 from utils.constants import LOG_LEVEL_ERROR
 from utils.logger import AppLogger
 
@@ -44,6 +43,17 @@ class VerifyOtpResponse(BaseModel):
     supabase_user_id: str | None = None
     supabase_token: str | None = None
     message: str | None = None
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str = Field(..., description="Refresh token from previous authentication")
+
+
+class RefreshTokenResponse(BaseModel):
+    token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int
 
 
 # ============================================================================
@@ -139,50 +149,79 @@ class AuthController:
             ) from exc
 
     @staticmethod
-    @router.get("/user/me")
-    async def get_current_user(
+    @router.post("/refresh", response_model=RefreshTokenResponse, status_code=status.HTTP_200_OK)
+    async def refresh_token(
+        payload: RefreshTokenRequest,
         request: Request,
-        user_service: Annotated[UserService, Depends(get_user_service)],
+        auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    ) -> RefreshTokenResponse:
+        """
+        Refresh access token using refresh token.
+        
+        Use this endpoint when the access token expires (typically after 1 hour).
+        The refresh token has a longer lifespan (typically 7 days).
+        
+        Flow:
+        1. Frontend detects 401 Unauthorized on API call
+        2. Frontend calls this endpoint with refresh_token
+        3. Backend validates refresh_token with Supabase
+        4. Backend checks user approval/active status
+        5. Returns new access_token and refresh_token
+        6. Frontend retries original API call with new token
+        
+        Both tokens are rotated on each refresh for security.
+        
+        Returns:
+            New access token and refresh token
+            
+        Raises:
+            HTTPException(401): Invalid or expired refresh token
+            HTTPException(403): User not approved or inactive
+        """
+        try:
+            result = await auth_service.refresh_access_token(payload.refresh_token)
+            return RefreshTokenResponse(**result)
+
+        except HTTPException:
+            raise
+
+        except Exception as exc:
+            logger.log(
+                LOG_LEVEL_ERROR,
+                f"Refresh token failed for {request.method} {request.url.path}, error: {exc}",
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token refresh failed",
+            ) from exc
+
+    @staticmethod
+    @router.get("/user/me")
+    async def get_current_user_endpoint(
+        current_user: Annotated[dict, Depends(get_current_user)],
     ) -> dict:
         """
         Get current authenticated user's data from token.
         
-        This endpoint extracts the user ID from the JWT token
-        and returns the full user profile from the database.
+        This endpoint uses the get_current_user dependency which:
+        1. Extracts token from Authorization header (HTTPBearer)
+        2. Validates JWT signature and expiry (PyJWT)
+        3. Fetches user from database
+        4. Checks approval and active status
         
-        Usage:
-        1. After login, frontend receives token
-        2. Frontend calls this endpoint with Authorization: Bearer <token>
-        3. Backend validates token, extracts user_id, returns user data
+        The dependency handles all validation, so this endpoint just returns the user.
         
-        This ensures frontend always has fresh user data from the database.
+        Returns:
+            dict: Full user profile with all fields
+            
+        Raises:
+            HTTPException(401): Invalid, expired, or missing token
+            HTTPException(403): User not approved or inactive
+            HTTPException(404): User not found
         """
-        try:
-            # Extract user ID from JWT token
-            user_id = get_user_id_from_token(request)
-            
-            # Get user data from database
-            user_data = user_service.get_user(user_id)
-            
-            return user_data
-            
-        except HTTPException:
-            raise
-        except LookupError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            ) from exc
-        except Exception as exc:
-            logger.log(
-                LOG_LEVEL_ERROR,
-                f"Get current user failed for {request.method} {request.url.path}, error: {exc}",
-                exc_info=True,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to fetch user data"
-            ) from exc
+        # The dependency already validated everything, just return the user
+        return current_user
 
 
 # Export router

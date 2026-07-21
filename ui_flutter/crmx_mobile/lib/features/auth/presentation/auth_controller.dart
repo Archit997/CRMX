@@ -15,6 +15,11 @@ final baseCacheServiceProvider = Provider<CacheService>((ref) {
   // The auth token will be provided by the repository after login
   final apiClient = ApiClient(
     tokenProvider: () async => ref.read(baseCacheServiceProvider).getCachedAuthToken(),
+    refreshTokenCallback: () async {
+      // Call refreshSession on the repository
+      final authRepo = ref.read(authRepositoryProvider);
+      await authRepo.refreshSession();
+    },
   );
   return CacheService(apiClient);
 });

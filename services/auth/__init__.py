@@ -16,14 +16,24 @@ from services.auth.constants import (
     REFRESH_TOKEN_EXPIRY,
 )
 from services.auth.controller import auth_router
-from services.auth.jwt_utils import (
-    assert_supabase_user_matches_request,
-    get_user_id_from_token,
+from services.auth.dependencies import (
+    decode_jwt_token,
+    get_authenticated_user_for_signup,
+    get_current_user,
+    get_current_user_optional,
+    get_user_id_from_current_user,
+    require_active_user,
+    require_admin,
+    require_developer,
+    require_manager_or_admin,
+    security,
 )
 
 __all__ = [
+    # Core service and router
     "AuthService",
     "auth_router",
+    # Constants
     "ACCESS_TOKEN_EXPIRY",
     "ERROR_AUTH_FAILED",
     "ERROR_INVALID_OTP",
@@ -38,6 +48,15 @@ __all__ = [
     "PHONE_REGEX_PATTERN",
     "PUBLIC_ROUTES",
     "REFRESH_TOKEN_EXPIRY",
-    "assert_supabase_user_matches_request",
-    "get_user_id_from_token",
+    # Authentication dependencies (HTTPBearer + PyJWT)
+    "security",
+    "decode_jwt_token",
+    "get_current_user",
+    "get_current_user_optional",
+    "get_authenticated_user_for_signup",
+    "get_user_id_from_current_user",
+    "require_admin",
+    "require_manager_or_admin",
+    "require_developer",
+    "require_active_user",
 ]
