@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/cache/cache_service.dart';
+import '../../core/errors.dart';
+import '../../features/clients/data/client_repository.dart';
 import '../../features/clients/presentation/client_controller.dart';
-import '../data/crmx_repository.dart';
 import '../models/crmx_models.dart';
 import '../theme/app_theme.dart';
 
@@ -17,7 +18,7 @@ class ClientDetailScreen extends ConsumerStatefulWidget {
 
   final ClientInfo client;
   final List<StatusMaster> statuses;
-  final CRMXRepository repository;
+  final ClientRepository repository;
 
   @override
   ConsumerState<ClientDetailScreen> createState() =>
@@ -84,7 +85,7 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
         setState(() => _loadingUsers = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load users: $e'),
+            content: Text(ErrorHandler.getOperationError('load', e)),
             backgroundColor: AppTheme.red,
           ),
         );
@@ -131,8 +132,6 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
             backgroundColor: AppTheme.green,
           ),
         );
-        // Return updated status to previous screen
-        Navigator.pop(context, true);
       }
     } catch (e) {
       setState(() {
@@ -142,7 +141,7 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update status: $e'),
+            content: Text(ErrorHandler.getOperationError('update', e)),
             backgroundColor: AppTheme.red,
           ),
         );
@@ -277,8 +276,6 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
             backgroundColor: AppTheme.green,
           ),
         );
-        // Return true to indicate changes were made
-        Navigator.pop(context, true);
       }
     } catch (e) {
       print('❌ Error updating client: $e');
@@ -287,7 +284,7 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update client: $e'),
+            content: Text(ErrorHandler.getOperationError('save', e)),
             backgroundColor: AppTheme.red,
           ),
         );
@@ -512,7 +509,7 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
       // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to delete client: $e'),
+          content: Text(ErrorHandler.getOperationError('delete', e)),
           backgroundColor: AppTheme.red,
           duration: const Duration(seconds: 4),
         ),

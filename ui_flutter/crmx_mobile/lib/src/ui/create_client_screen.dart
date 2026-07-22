@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/cache/cache_service.dart';
+import '../../core/errors.dart';
 import '../../features/auth/domain/auth_user.dart';
 import '../../features/clients/presentation/client_controller.dart';
 import '../models/crmx_models.dart';
@@ -70,7 +71,7 @@ class _CreateClientScreenState extends ConsumerState<CreateClientScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load users: $e'),
+            content: Text(ErrorHandler.getOperationError('load', e)),
             backgroundColor: AppTheme.red,
           ),
         );

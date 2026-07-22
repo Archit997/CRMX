@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/errors.dart';
 import '../../features/auth/domain/auth_user.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/auth/presentation/pending_users_screen.dart';
 import '../../features/clients/presentation/client_controller.dart';
-import '../data/crmx_repository.dart';
 import '../models/crmx_models.dart';
 import '../theme/app_theme.dart';
 import 'client_detail_screen.dart';
@@ -33,11 +33,15 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
     // Load clients on screen init
     Future.microtask(() {
       ref.read(clientControllerProvider.notifier).loadDashboard();
+      // Start auto-refresh to pick up changes from detail screen
+      ref.read(clientControllerProvider.notifier).startAutoRefresh();
     });
   }
 
   @override
   void dispose() {
+    // Stop auto-refresh when leaving the screen
+    ref.read(clientControllerProvider.notifier).stopAutoRefresh();
     _searchController.dispose();
     super.dispose();
   }
@@ -331,14 +335,15 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
         builder: (context) => ClientDetailScreen(
           client: client,
           statuses: statuses,
-          repository: CRMXRepository(),
+          repository: ref.read(clientRepositoryProvider),
         ),
       ),
     );
 
-    // Reload if changes were made
-    if (result == true && mounted) {
-      ref.read(clientControllerProvider.notifier).loadDashboard();
+    // Refresh dashboard when returning from detail screen
+    // (changes might have been made that need to be reflected)
+    if (mounted) {
+      ref.read(clientControllerProvider.notifier).loadDashboard(silent: true);
     }
   }
 
@@ -395,7 +400,7 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to create client: $e'),
+          content: Text(ErrorHandler.getOperationError('create', e)),
           backgroundColor: AppTheme.red,
           duration: const Duration(seconds: 4),
         ),

@@ -13,7 +13,8 @@ from db.postgres import PostgresDB
 from services.auth.controller import auth_router
 from services.auth.dependencies import require_developer
 from services.client.controller import client_router
-from services.postgres import PostgresService, postgres_router
+from services.postgres import PostgresService
+from services.postgres.controller import postgres_router
 from services.status.controller import status_router
 from services.user.controller import user_router
 # POC endpoints commented out - using Postgres endpoints instead

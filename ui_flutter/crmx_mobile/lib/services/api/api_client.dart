@@ -4,22 +4,59 @@ import '../../core/config/app_config.dart';
 import '../../core/errors/app_exception.dart';
 
 typedef TokenProvider = Future<String?> Function();
-typedef RefreshTokenCallback = Future<void> Function();
+typedef RefreshTokenProvider = Future<String?> Function();
+typedef TokenUpdater = Future<void> Function(String newToken, String newRefreshToken);
 
 class ApiClient {
   ApiClient({
     http.Client? client,
     required this.tokenProvider,
-    this.refreshTokenCallback,
+    this.refreshTokenProvider,
+    this.tokenUpdater,
   }) : _client = client ?? http.Client();
 
   final http.Client _client;
   final TokenProvider tokenProvider;
-  final RefreshTokenCallback? refreshTokenCallback;
+  final RefreshTokenProvider? refreshTokenProvider;
+  final TokenUpdater? tokenUpdater;
   
   bool _isRefreshing = false;
 
   String get _baseUrl => AppConfig.backendBaseUrl;
+
+  /// Internal method to refresh access token using refresh token
+  Future<void> _refreshAccessToken() async {
+    if (refreshTokenProvider == null || tokenUpdater == null) {
+      throw const AuthException('Token refresh not configured');
+    }
+
+    final refreshToken = await refreshTokenProvider!();
+    if (refreshToken == null || refreshToken.isEmpty) {
+      throw const AuthException('No refresh token available');
+    }
+
+    try {
+      // Call backend refresh endpoint directly
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/api/auth/refresh'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'refresh_token': refreshToken}),
+      );
+
+      if (response.statusCode != 200) {
+        throw const AuthException('Token refresh failed');
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final newToken = data['token'] as String;
+      final newRefreshToken = data['refresh_token'] as String;
+
+      // Update cache with new tokens
+      await tokenUpdater!(newToken, newRefreshToken);
+    } catch (e) {
+      throw AuthException('Failed to refresh token: ${e.toString()}');
+    }
+  }
 
   /// GET request
   Future<dynamic> get(
@@ -42,10 +79,11 @@ class ApiClient {
       if (e is UnauthorizedException && 
           retryOnUnauthorized && 
           !_isRefreshing && 
-          refreshTokenCallback != null) {
+          refreshTokenProvider != null &&
+          tokenUpdater != null) {
         _isRefreshing = true;
         try {
-          await refreshTokenCallback!();
+          await _refreshAccessToken();
           _isRefreshing = false;
           
           // Retry the request with new token
@@ -89,10 +127,11 @@ class ApiClient {
       if (e is UnauthorizedException && 
           retryOnUnauthorized && 
           !_isRefreshing && 
-          refreshTokenCallback != null) {
+          refreshTokenProvider != null &&
+          tokenUpdater != null) {
         _isRefreshing = true;
         try {
-          await refreshTokenCallback!();
+          await _refreshAccessToken();
           _isRefreshing = false;
           
           // Retry the request with new token
@@ -140,10 +179,11 @@ class ApiClient {
       if (e is UnauthorizedException && 
           retryOnUnauthorized && 
           !_isRefreshing && 
-          refreshTokenCallback != null) {
+          refreshTokenProvider != null &&
+          tokenUpdater != null) {
         _isRefreshing = true;
         try {
-          await refreshTokenCallback!();
+          await _refreshAccessToken();
           _isRefreshing = false;
           
           // Retry the request with new token
@@ -187,10 +227,11 @@ class ApiClient {
       if (e is UnauthorizedException && 
           retryOnUnauthorized && 
           !_isRefreshing && 
-          refreshTokenCallback != null) {
+          refreshTokenProvider != null &&
+          tokenUpdater != null) {
         _isRefreshing = true;
         try {
-          await refreshTokenCallback!();
+          await _refreshAccessToken();
           _isRefreshing = false;
           
           // Retry the request with new token

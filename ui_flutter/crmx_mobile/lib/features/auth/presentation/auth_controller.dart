@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/cache/cache_service.dart';
+import '../../../core/errors.dart';
 import '../../../services/api/api_client.dart';
 import '../data/auth_repository.dart';
 import '../data/backend_auth_repository.dart';
@@ -8,34 +9,45 @@ import '../domain/auth_user.dart';
 
 // Providers
 
-/// Provider for cache service (used by auth repository)
-/// Note: This is created first without token provider to avoid circular dependency
-final baseCacheServiceProvider = Provider<CacheService>((ref) {
-  // Create a simple API client for cache service
-  // The auth token will be provided by the repository after login
+/// Provider for cache service with automatic token refresh
+final Provider<CacheService> baseCacheServiceProvider = Provider<CacheService>((ref) {
+  // Create cache service holder
+  late CacheService cacheService;
+  
+  // Create API client with token refresh capability
   final apiClient = ApiClient(
-    tokenProvider: () async => ref.read(baseCacheServiceProvider).getCachedAuthToken(),
-    refreshTokenCallback: () async {
-      // Call refreshSession on the repository
-      final authRepo = ref.read(authRepositoryProvider);
-      await authRepo.refreshSession();
+    tokenProvider: () async {
+      return cacheService.getCachedAuthToken();
+    },
+    refreshTokenProvider: () async {
+      // Return the refresh token from cache
+      return cacheService.getCachedRefreshToken();
+    },
+    tokenUpdater: (newToken, newRefreshToken) async {
+      // Update cache with new tokens after refresh
+      cacheService.cacheAuthToken(newToken);
+      cacheService.cacheRefreshToken(newRefreshToken);
     },
   );
-  return CacheService(apiClient);
+  
+  // Create the cache service
+  cacheService = CacheService(apiClient);
+  
+  return cacheService;
 });
 
 /// Provider for auth repository using backend API
-final authRepositoryProvider = Provider<AuthRepository>((ref) {
+final Provider<AuthRepository> authRepositoryProvider = Provider<AuthRepository>((ref) {
   final cacheService = ref.read(baseCacheServiceProvider);
   return BackendAuthRepository(cacheService);
 });
 
 /// Alias for auth cache service (for backward compatibility)
-final authCacheServiceProvider = Provider<CacheService>((ref) {
+final Provider<CacheService> authCacheServiceProvider = Provider<CacheService>((ref) {
   return ref.read(baseCacheServiceProvider);
 });
 
-final authControllerProvider =
+final StateNotifierProvider<AuthController, AuthState> authControllerProvider =
     StateNotifierProvider<AuthController, AuthState>((ref) {
   return AuthController(
     ref.read(authRepositoryProvider),
@@ -43,7 +55,7 @@ final authControllerProvider =
   );
 });
 
-final authUserProvider = StreamProvider<AuthUser?>((ref) async* {
+final StreamProvider<AuthUser?> authUserProvider = StreamProvider<AuthUser?>((ref) async* {
   final repository = ref.read(authRepositoryProvider);
 
   // Emit current user immediately
@@ -74,7 +86,7 @@ class AuthController extends StateNotifier<AuthState> {
       await _authRepository.sendOtp(phoneNumber);
       state = OtpSent(phoneNumber);
     } on Exception catch (e) {
-      state = AuthError(e.toString());
+      state = AuthError(ErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
@@ -91,7 +103,7 @@ class AuthController extends StateNotifier<AuthState> {
       );
       state = await _stateForUser(user);
     } on Exception catch (e) {
-      state = AuthError(e.toString());
+      state = AuthError(ErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
@@ -111,7 +123,7 @@ class AuthController extends StateNotifier<AuthState> {
       );
       state = ApprovalPending(pendingUser);
     } on Exception catch (e) {
-      state = AuthError(e.toString());
+      state = AuthError(ErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
@@ -126,7 +138,7 @@ class AuthController extends StateNotifier<AuthState> {
       
       state = const Unauthenticated();
     } on Exception catch (e) {
-      state = AuthError(e.toString());
+      state = AuthError(ErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
