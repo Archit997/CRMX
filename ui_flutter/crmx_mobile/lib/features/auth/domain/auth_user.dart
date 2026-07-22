@@ -44,6 +44,20 @@ class AuthUser {
     );
   }
 
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'phone': phone,
+      'email': email,
+      'name': name,
+      'role': role,
+      'contact': contact,
+      'approval_status': approvalStatus,
+      'is_active': isActive,
+      'created_at': createdAt?.toIso8601String(),
+    };
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

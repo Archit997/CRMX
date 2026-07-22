@@ -61,6 +61,7 @@ class ClientInfo {
     required this.email,
     required this.city,
     required this.assignedTo,
+    required this.assignedToName,
     required this.currentStatusNo,
     required this.statusName,
     required this.requirementSummary,
@@ -77,6 +78,7 @@ class ClientInfo {
   final String email;
   final String city;
   final String assignedTo;
+  final String assignedToName;
   final int currentStatusNo;
   final String statusName;
   final String requirementSummary;
@@ -94,8 +96,9 @@ class ClientInfo {
       email: (json['email'] ?? '') as String,
       city: (json['city'] ?? '') as String,
       assignedTo: json['assigned_to'] as String,
+      assignedToName: (json['assigned_to_name'] ?? 'Unknown') as String,
       currentStatusNo: json['current_status_no'] as int,
-      statusName: (json['status_name'] ?? 'Unknown') as String,
+      statusName: (json['current_status_name'] ?? json['status_name'] ?? 'Unknown') as String,
       requirementSummary: (json['requirement_summary'] ?? '') as String,
       priority: json['priority'] as String,
       dealValue: (json['deal_value'] ?? 0) as int,

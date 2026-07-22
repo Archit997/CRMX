@@ -1,20 +1,61 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/cache/cache_service.dart';
+import '../../../core/errors.dart';
+import '../../../services/api/api_client.dart';
 import '../data/auth_repository.dart';
-import '../data/supabase_auth_repository.dart';
+import '../data/backend_auth_repository.dart';
 import '../domain/auth_state.dart';
 import '../domain/auth_user.dart';
 
 // Providers
-final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return SupabaseAuthRepository();
+
+/// Provider for cache service with automatic token refresh
+final Provider<CacheService> baseCacheServiceProvider = Provider<CacheService>((ref) {
+  // Create cache service holder
+  late CacheService cacheService;
+  
+  // Create API client with token refresh capability
+  final apiClient = ApiClient(
+    tokenProvider: () async {
+      return cacheService.getCachedAuthToken();
+    },
+    refreshTokenProvider: () async {
+      // Return the refresh token from cache
+      return cacheService.getCachedRefreshToken();
+    },
+    tokenUpdater: (newToken, newRefreshToken) async {
+      // Update cache with new tokens after refresh
+      cacheService.cacheAuthToken(newToken);
+      cacheService.cacheRefreshToken(newRefreshToken);
+    },
+  );
+  
+  // Create the cache service
+  cacheService = CacheService(apiClient);
+  
+  return cacheService;
 });
 
-final authControllerProvider =
+/// Provider for auth repository using backend API
+final Provider<AuthRepository> authRepositoryProvider = Provider<AuthRepository>((ref) {
+  final cacheService = ref.read(baseCacheServiceProvider);
+  return BackendAuthRepository(cacheService);
+});
+
+/// Alias for auth cache service (for backward compatibility)
+final Provider<CacheService> authCacheServiceProvider = Provider<CacheService>((ref) {
+  return ref.read(baseCacheServiceProvider);
+});
+
+final StateNotifierProvider<AuthController, AuthState> authControllerProvider =
     StateNotifierProvider<AuthController, AuthState>((ref) {
-  return AuthController(ref.read(authRepositoryProvider));
+  return AuthController(
+    ref.read(authRepositoryProvider),
+    ref.read(authCacheServiceProvider),
+  );
 });
 
-final authUserProvider = StreamProvider<AuthUser?>((ref) async* {
+final StreamProvider<AuthUser?> authUserProvider = StreamProvider<AuthUser?>((ref) async* {
   final repository = ref.read(authRepositoryProvider);
 
   // Emit current user immediately
@@ -32,9 +73,11 @@ final authUserProvider = StreamProvider<AuthUser?>((ref) async* {
 });
 
 class AuthController extends StateNotifier<AuthState> {
-  AuthController(this._authRepository) : super(const Unauthenticated());
+  AuthController(this._authRepository, this._cacheService)
+      : super(const Unauthenticated());
 
   final AuthRepository _authRepository;
+  final CacheService _cacheService;
 
   /// Send OTP to phone number
   Future<void> sendOtp(String phoneNumber) async {
@@ -43,7 +86,7 @@ class AuthController extends StateNotifier<AuthState> {
       await _authRepository.sendOtp(phoneNumber);
       state = OtpSent(phoneNumber);
     } on Exception catch (e) {
-      state = AuthError(e.toString());
+      state = AuthError(ErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
@@ -60,7 +103,7 @@ class AuthController extends StateNotifier<AuthState> {
       );
       state = await _stateForUser(user);
     } on Exception catch (e) {
-      state = AuthError(e.toString());
+      state = AuthError(ErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
@@ -80,7 +123,7 @@ class AuthController extends StateNotifier<AuthState> {
       );
       state = ApprovalPending(pendingUser);
     } on Exception catch (e) {
-      state = AuthError(e.toString());
+      state = AuthError(ErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
@@ -89,9 +132,13 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       state = const Authenticating();
       await _authRepository.signOut();
+      
+      // Clear all caches on logout
+      _cacheService.clearAll();
+      
       state = const Unauthenticated();
     } on Exception catch (e) {
-      state = AuthError(e.toString());
+      state = AuthError(ErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
@@ -114,6 +161,35 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
+  /// Check approval status with fresh data from backend
+  /// 
+  /// This method is specifically for when a user on the approval pending screen
+  /// clicks "Check again" - it bypasses cache to get the latest approval status
+  /// from the backend in case an admin just approved/rejected them.
+  Future<void> checkApprovalStatus() async {
+    try {
+      state = const Authenticating();
+      
+      // Invalidate cached user data to force fresh fetch
+      _cacheService.invalidateCurrentUserData();
+      
+      final isAuthenticated = await _authRepository.isAuthenticated();
+      if (isAuthenticated) {
+        final user = await _authRepository.getCurrentUser();
+        if (user != null) {
+          // Force refresh to bypass cache and get fresh approval status
+          state = await _stateForUser(user, forceRefresh: true);
+        } else {
+          state = const Unauthenticated();
+        }
+      } else {
+        state = const Unauthenticated();
+      }
+    } catch (e) {
+      state = const Unauthenticated();
+    }
+  }
+
   /// Refresh session
   Future<void> refreshSession() async {
     try {
@@ -123,11 +199,14 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
-  Future<AuthState> _stateForUser(AuthUser user) async {
-    final profile = await _authRepository.getAppProfile(user);
+  Future<AuthState> _stateForUser(AuthUser user, {bool forceRefresh = false}) async {
+    final profile = await _authRepository.getAppProfile(user, forceRefresh: forceRefresh);
     if (profile == null) {
       return SignupRequired(user);
     }
+
+    // Cache the current user data (no longer caching AuthUser object, just data)
+    _cacheService.cacheCurrentUserData(profile.toMap());
 
     return switch (profile.approvalStatus) {
       'approved' when profile.isActive => Authenticated(profile),

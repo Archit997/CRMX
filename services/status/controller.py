@@ -2,6 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from services.auth.dependencies import get_current_user
 from services.postgres.exceptions import ConflictError
 from services.postgres.dependencies import get_status_service
 from services.status.status_service import StatusCreateRequest, StatusService
@@ -18,8 +19,14 @@ class StatusController:
     @router.get("/master-status")
     async def list_statuses(
         request: Request,
+        current_user: Annotated[dict, Depends(get_current_user)],
         status_service: Annotated[StatusService, Depends(get_status_service)],
     ) -> list[dict]:
+        """
+        List all status master data.
+        
+        Access: All authenticated users
+        """
         try:
             return status_service.list_statuses()
         except Exception as exc:
@@ -35,8 +42,14 @@ class StatusController:
     async def create_status(
         payload: StatusCreateRequest,
         request: Request,
+        current_user: Annotated[dict, Depends(get_current_user)],
         status_service: Annotated[StatusService, Depends(get_status_service)],
     ) -> dict:
+        """
+        Create a new status in master data.
+        
+        Access: All authenticated users
+        """
         try:
             return status_service.create_status(payload)
         except ConflictError as exc:

@@ -1,3 +1,21 @@
+from services.user.constants import (
+    ADMIN_ROLES,
+    APPROVAL_STATUS_APPROVED,
+    APPROVAL_STATUS_PENDING,
+    APPROVAL_STATUS_REJECTED,
+    ERROR_INVALID_APPROVAL_STATUS,
+    ERROR_INVALID_ROLE,
+    ERROR_UNAUTHORIZED,
+    ERROR_USER_ALREADY_EXISTS,
+    ERROR_USER_NOT_FOUND,
+    EXCLUDED_FROM_ASSIGNMENT,
+    USER_ROLE_ADMIN,
+    USER_ROLE_DEV,
+    USER_ROLE_EMPLOYEE,
+    USER_ROLE_MANAGER,
+    VALID_APPROVAL_STATUSES,
+    VALID_USER_ROLES,
+)
 from services.user.user_repository import UserRepository
 from services.user.user_service import UserService, UserCreateRequest, UserUpdateRequest
 
@@ -6,4 +24,20 @@ __all__ = [
     "UserService",
     "UserCreateRequest",
     "UserUpdateRequest",
+    "ADMIN_ROLES",
+    "APPROVAL_STATUS_APPROVED",
+    "APPROVAL_STATUS_PENDING",
+    "APPROVAL_STATUS_REJECTED",
+    "ERROR_INVALID_APPROVAL_STATUS",
+    "ERROR_INVALID_ROLE",
+    "ERROR_UNAUTHORIZED",
+    "ERROR_USER_ALREADY_EXISTS",
+    "ERROR_USER_NOT_FOUND",
+    "EXCLUDED_FROM_ASSIGNMENT",
+    "USER_ROLE_ADMIN",
+    "USER_ROLE_DEV",
+    "USER_ROLE_EMPLOYEE",
+    "USER_ROLE_MANAGER",
+    "VALID_APPROVAL_STATUSES",
+    "VALID_USER_ROLES",
 ]

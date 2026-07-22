@@ -2,6 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from services.auth.dependencies import get_current_user, require_manager_or_admin
 from services.client.client_service import (
     ClientCreateRequest,
     ClientPatchRequest,
@@ -22,8 +23,14 @@ class ClientController:
     @router.get("/client-list")
     async def list_clients(
         request: Request,
+        current_user: Annotated[dict, Depends(get_current_user)],
         client_service: Annotated[ClientService, Depends(get_client_service)],
     ) -> list[dict]:
+        """
+        List all clients.
+        
+        Access: All authenticated users
+        """
         try:
             return client_service.list_clients()
         except Exception as exc:
@@ -39,8 +46,14 @@ class ClientController:
     async def search_clients(
         search_term: str,
         request: Request,
+        current_user: Annotated[dict, Depends(get_current_user)],
         client_service: Annotated[ClientService, Depends(get_client_service)],
     ) -> list[dict]:
+        """
+        Search clients by name, email, phone, or company.
+        
+        Access: All authenticated users
+        """
         try:
             return client_service.search_clients(search_term)
         except Exception as exc:
@@ -56,8 +69,14 @@ class ClientController:
     async def create_client(
         payload: ClientCreateRequest,
         request: Request,
+        current_user: Annotated[dict, Depends(get_current_user)],
         client_service: Annotated[ClientService, Depends(get_client_service)],
     ) -> dict:
+        """
+        Create a new client.
+        
+        Access: All authenticated users
+        """
         try:
             return client_service.create_client(payload)
         except ValueError as exc:
@@ -75,8 +94,14 @@ class ClientController:
     async def patch_client(
         payload: ClientPatchRequest,
         request: Request,
+        current_user: Annotated[dict, Depends(get_current_user)],
         client_service: Annotated[ClientService, Depends(get_client_service)],
     ) -> dict:
+        """
+        Update client details.
+        
+        Access: All authenticated users
+        """
         try:
             return client_service.patch_client(payload)
         except LookupError as exc:
@@ -96,8 +121,14 @@ class ClientController:
     async def delete_client(
         client_id: int,
         request: Request,
+        manager: Annotated[dict, Depends(require_manager_or_admin)],
         client_service: Annotated[ClientService, Depends(get_client_service)],
     ) -> dict:
+        """
+        Delete a client.
+        
+        Access: MANAGER, ADMIN only
+        """
         try:
             return client_service.delete_client(client_id)
         except LookupError as exc:
@@ -114,8 +145,14 @@ class ClientController:
     @router.post("/client-test-seed")
     async def sync_seeded_test_clients(
         request: Request,
+        current_user: Annotated[dict, Depends(get_current_user)],
         client_service: Annotated[ClientService, Depends(get_client_service)],
     ) -> dict:
+        """
+        Sync test client data (for development/testing).
+        
+        Access: All authenticated users
+        """
         try:
             return client_service.sync_seeded_test_clients()
         except ValueError as exc:
@@ -133,8 +170,14 @@ class ClientController:
     async def change_client_status(
         payload: ClientStatusChangeRequest,
         request: Request,
+        current_user: Annotated[dict, Depends(get_current_user)],
         client_service: Annotated[ClientService, Depends(get_client_service)],
     ) -> dict:
+        """
+        Change client status.
+        
+        Access: All authenticated users
+        """
         try:
             return client_service.change_client_status(payload)
         except LookupError as exc:

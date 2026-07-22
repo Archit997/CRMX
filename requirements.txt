@@ -4,7 +4,9 @@ fastapi
 psycopg[binary]
 psycopg2-binary
 pymongo
+pyjwt[crypto]>=2.8.0
 python-dotenv
 requests
 SQLAlchemy
+supabase
 uvicorn

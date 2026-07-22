@@ -78,14 +78,18 @@ lib/
   src/
     app.dart                   # Main app widget (no auth)
     data/
-      crmx_repository.dart     # API calls & data fetching
-      mock_data.dart           # Fallback mock data
+      crmx_repository.dart     # API calls & data fetching (legacy)
     models/
       crmx_models.dart         # Data models (ClientInfo, etc.)
     theme/
       app_theme.dart           # Material theme & colors
     ui/
       client_list_screen.dart  # Main landing page (client list + search)
+  features/
+    auth/                      # Authentication feature module
+    clients/                   # Client management feature module
+  core/
+    cache/                     # Caching system (see CACHING_DOCUMENTATION.md)
 ```
 
 ## Design Direction

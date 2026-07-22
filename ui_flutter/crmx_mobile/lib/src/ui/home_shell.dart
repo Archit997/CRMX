@@ -551,7 +551,7 @@ class _ClientWorkspaceScreenState extends State<ClientWorkspaceScreen> {
                 DetailRow(
                     label: 'Email',
                     value: client.email.isEmpty ? 'Not added' : client.email),
-                DetailRow(label: 'Owner', value: client.assignedTo),
+                DetailRow(label: 'Owner', value: client.assignedToName),
                 DetailRow(
                     label: 'City',
                     value: client.city.isEmpty ? 'Not added' : client.city),
