@@ -1,5 +1,6 @@
 import uvicorn
-from fastapi import FastAPI, Request
+from typing import Annotated
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -9,8 +10,11 @@ from pathlib import Path
 
 from db.postgres import PostgresDB
 
+from services.auth.controller import auth_router
+from services.auth.dependencies import require_developer
 from services.client.controller import client_router
-from services.postgres import PostgresService, postgres_router
+from services.postgres import PostgresService
+from services.postgres.controller import postgres_router
 from services.status.controller import status_router
 from services.user.controller import user_router
 # POC endpoints commented out - using Postgres endpoints instead
@@ -70,6 +74,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
 app.include_router(postgres_router)
 app.include_router(client_router)
 app.include_router(status_router)
@@ -82,7 +87,12 @@ app.mount("/mobile", StaticFiles(directory=MOBILE_PROTOTYPE_DIR, html=True), nam
 
 
 @app.get("/")
-async def root() -> RedirectResponse:
+async def root(dev: Annotated[dict, Depends(require_developer)]) -> RedirectResponse:
+    """
+    Root endpoint - redirects to API documentation.
+    
+    Access: DEV (Developer) role only
+    """
     # Redirect to docs instead of mobile prototype (POC)
     return RedirectResponse(url="/docs")
 

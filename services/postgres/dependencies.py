@@ -5,6 +5,7 @@ from collections.abc import Generator
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
+from services.auth.auth_service import AuthService
 from services.client.client_repository import ClientRepository
 from services.client.client_service import ClientService
 from services.client.client_update_repository import ClientUpdateRepository
@@ -46,3 +47,10 @@ def get_user_service(db_session: Session = Depends(get_db_session)) -> UserServi
         db_session=db_session,
         user_repository=UserRepository(db_session),
     )
+
+
+def get_auth_service(user_service: UserService = Depends(get_user_service)) -> AuthService:
+    """
+    Dependency to get AuthService instance.
+    """
+    return AuthService(user_service)

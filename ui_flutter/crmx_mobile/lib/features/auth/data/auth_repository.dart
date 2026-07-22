@@ -13,7 +13,10 @@ abstract class AuthRepository {
   });
 
   /// Get app profile and approval state for a Supabase auth user
-  Future<AuthUser?> getAppProfile(AuthUser user);
+  /// 
+  /// If [forceRefresh] is true, bypasses cache and fetches fresh data from backend.
+  /// Useful when you know the user's approval status may have changed (e.g., after admin approval).
+  Future<AuthUser?> getAppProfile(AuthUser user, {bool forceRefresh = false});
 
   /// Create pending app profile after first OTP verification
   Future<AuthUser> requestSignup({

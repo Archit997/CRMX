@@ -21,7 +21,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _contactController = TextEditingController();
-  String _role = 'sales';
+  String _role = 'EMPLOYEE';
 
   @override
   void dispose() {
@@ -78,9 +78,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   prefixIcon: Icon(Icons.badge_rounded),
                 ),
                 items: const [
-                  DropdownMenuItem(value: 'sales', child: Text('Sales')),
-                  DropdownMenuItem(value: 'finance', child: Text('Finance')),
-                  DropdownMenuItem(value: 'manager', child: Text('Manager')),
+                  DropdownMenuItem(value: 'EMPLOYEE', child: Text('Employee')),
+                  DropdownMenuItem(value: 'DEV', child: Text('Developer')),
+                  DropdownMenuItem(value: 'MANAGER', child: Text('Manager')),
                 ],
                 onChanged: loading
                     ? null

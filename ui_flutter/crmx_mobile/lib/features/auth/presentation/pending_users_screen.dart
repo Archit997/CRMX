@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/errors.dart';
 import '../../../services/api/api_client.dart';
 import '../../../src/theme/app_theme.dart';
 import '../data/auth_repository.dart';
@@ -98,7 +99,10 @@ class _PendingUsersScreenState extends State<PendingUsersScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not update ${user.name}: $error')),
+        SnackBar(
+          content: Text('Could not update ${user.name}: ${ErrorHandler.getUserFriendlyMessage(error)}'),
+          backgroundColor: AppTheme.red,
+        ),
       );
     }
   }
