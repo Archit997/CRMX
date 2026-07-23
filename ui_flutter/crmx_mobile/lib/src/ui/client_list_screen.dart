@@ -30,18 +30,14 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
   @override
   void initState() {
     super.initState();
-    // Load clients on screen init
     Future.microtask(() {
+      if (!mounted) return;
       ref.read(clientControllerProvider.notifier).loadDashboard();
-      // Start auto-refresh to pick up changes from detail screen
-      ref.read(clientControllerProvider.notifier).startAutoRefresh();
     });
   }
 
   @override
   void dispose() {
-    // Stop auto-refresh when leaving the screen
-    ref.read(clientControllerProvider.notifier).stopAutoRefresh();
     _searchController.dispose();
     super.dispose();
   }

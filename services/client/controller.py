@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from services.auth.dependencies import get_current_user, require_manager_or_admin
+from services.auth.dependencies import get_current_user, require_manager_or_admin, require_developer
 from services.client.client_service import (
     ClientCreateRequest,
     ClientPatchRequest,
@@ -145,7 +145,7 @@ class ClientController:
     @router.post("/client-test-seed")
     async def sync_seeded_test_clients(
         request: Request,
-        current_user: Annotated[dict, Depends(get_current_user)],
+        current_user: Annotated[dict, Depends(require_developer)],
         client_service: Annotated[ClientService, Depends(get_client_service)],
     ) -> dict:
         """

@@ -59,13 +59,32 @@ class BackendAuthRepository implements AuthRepository {
 
       if (response.statusCode != 200) {
         final error = jsonDecode(response.body);
-        throw AuthException(error['detail'] ?? 'OTP verification failed');
+        final detail = (error is Map ? error['detail'] : null)?.toString() ??
+            'OTP verification failed';
+
+        // Pending / rejected accounts still authenticated with Supabase but
+        // blocked by CRMX approval — surface as dedicated exceptions.
+        final lower = detail.toLowerCase();
+        if (response.statusCode == 403 && lower.contains('pending')) {
+          throw ApprovalPendingException(phone: phoneNumber, message: detail);
+        }
+        if (response.statusCode == 403 && lower.contains('rejected')) {
+          throw ApprovalRejectedException(phone: phoneNumber, message: detail);
+        }
+
+        throw AuthException(detail);
       }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
 
       // Check if signup required
       if (data['requires_signup'] == true) {
+        // Cache the supabase_token so it can be used for signup request
+        final supabaseToken = data['supabase_token'] as String?;
+        if (supabaseToken != null) {
+          _cacheService.cacheAuthToken(supabaseToken);
+        }
+        
         throw SignupRequiredException(
           userId: data['supabase_user_id'],
           phone: data['phone'],
@@ -112,7 +131,12 @@ class BackendAuthRepository implements AuthRepository {
         isActive: userData['is_active'] == true,
       );
     } catch (e) {
-      if (e is AuthException || e is SignupRequiredException) rethrow;
+      if (e is AuthException ||
+          e is SignupRequiredException ||
+          e is ApprovalPendingException ||
+          e is ApprovalRejectedException) {
+        rethrow;
+      }
       throw AuthException('Failed to verify OTP: ${e.toString()}');
     }
   }
@@ -331,5 +355,34 @@ class SignupRequiredException implements Exception {
   final String phone;
 
   @override
-  String toString() => 'SignupRequiredException: User $userId needs to complete signup';
+  String toString() =>
+      'SignupRequiredException: User $userId needs to complete signup';
+}
+
+/// Exception thrown when account exists but is waiting for admin approval
+class ApprovalPendingException implements Exception {
+  const ApprovalPendingException({
+    required this.phone,
+    this.message = 'Account pending approval',
+  });
+
+  final String phone;
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+/// Exception thrown when account was rejected by admin
+class ApprovalRejectedException implements Exception {
+  const ApprovalRejectedException({
+    required this.phone,
+    this.message = 'Account rejected',
+  });
+
+  final String phone;
+  final String message;
+
+  @override
+  String toString() => message;
 }

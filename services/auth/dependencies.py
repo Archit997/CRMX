@@ -412,62 +412,45 @@ async def require_developer(
 
 async def get_authenticated_user_for_signup(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
-    user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> dict:
     """
-    Get authenticated user for signup request (allows inactive/not-approved users).
-    
-    This is a special dependency for the /auth/signup-request endpoint.
+    Authenticate a user for the signup-request endpoint.
+
+    New users have a valid Supabase JWT after OTP verification, but do NOT
+    yet exist in Postgres. This dependency therefore only validates the JWT
+    and returns the user id from the token — it must not require a Postgres row.
+
     Unlike get_current_user, this does NOT check:
-    - approval_status (can be pending, rejected, or approved)
-    - is_active (can be inactive)
-    
-    This allows new users who just completed OTP verification to create
-    a signup request even though they're not yet approved.
-    
-    Flow:
-    1. Validate JWT token (signature, expiry)
-    2. Fetch user from database
-    3. Return user data WITHOUT approval/active checks
-    
+    - whether the user exists in Postgres
+    - approval_status
+    - is_active
+
     Returns:
-        dict: User data from database (may be inactive/not approved)
-        
+        dict: At least {"id": "<supabase_user_uuid>"} from the JWT subject
+
     Raises:
         HTTPException(401): Invalid, expired, or missing token
-        HTTPException(404): User not found in database
     """
-    # Step 1: Extract token
     token = credentials.credentials
-    
-    # Step 2: Validate JWT and decode payload
     payload = decode_jwt_token(token)
-    
-    # Step 3: Extract user ID from token
+
     user_id_str = payload.get("sub")
     if not user_id_str:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token: missing user ID",
         )
-    
+
     try:
-        user_id = UUID(user_id_str)
+        UUID(user_id_str)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token: malformed user ID",
         ) from e
-    
-    # Step 4: Fetch user from database
-    try:
-        user = user_service.get_user(user_id)
-    except LookupError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        ) from e
-    
-    # Step 5: NO approval/active checks - allow all authenticated users
-    return user
+
+    return {
+        "id": user_id_str,
+        "phone": payload.get("phone"),
+    }
 

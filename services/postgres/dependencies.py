@@ -32,6 +32,7 @@ def get_client_service(db_session: Session = Depends(get_db_session)) -> ClientS
         client_repository=ClientRepository(db_session),
         client_update_repository=ClientUpdateRepository(db_session),
         status_repository=StatusRepository(db_session),
+        user_repository=UserRepository(db_session),
     )
 
 

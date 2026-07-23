@@ -41,6 +41,7 @@ class VerifyOtpResponse(BaseModel):
     expires_in: int | None = None
     requires_signup: bool = False
     supabase_user_id: str | None = None
+    phone: str | None = None
     supabase_token: str | None = None
     message: str | None = None
 
@@ -124,7 +125,7 @@ class AuthController:
         Response Cases:
         - Success (approved user): {token, refresh_token, requires_signup: false}
           → Frontend should call GET /api/user/me with token to get user data
-        - New User: {requires_signup: true, supabase_user_id, supabase_token}
+        - New User: {requires_signup: true, supabase_user_id, phone, supabase_token}
           → Frontend should show signup form
         - Pending Approval: 403 error "Account pending approval"
         - Rejected: 403 error "Account rejected"

@@ -1,6 +1,4 @@
-import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/cache/cache_config.dart';
 import '../../../core/cache/cache_service.dart';
 import '../../../services/api/api_client.dart';
 import '../../../src/models/crmx_models.dart';
@@ -25,8 +23,11 @@ final clientRepositoryProvider = Provider<ClientRepository>((ref) {
   return ClientRepository(apiClient, cacheService);
 });
 
-final clientControllerProvider =
-    StateNotifierProvider<ClientController, AsyncValue<DashboardData>>((ref) {
+/// Auto-dispose so the controller is torn down when ClientListScreen leaves
+/// the tree (e.g. logout). That sets [StateNotifier.mounted] to false and
+/// prevents in-flight [loadDashboard] calls from notifying a disposed Consumer.
+final clientControllerProvider = StateNotifierProvider.autoDispose<
+    ClientController, AsyncValue<DashboardData>>((ref) {
   return ClientController(ref.read(clientRepositoryProvider));
 });
 
@@ -34,31 +35,17 @@ class ClientController extends StateNotifier<AsyncValue<DashboardData>> {
   ClientController(this._repository) : super(const AsyncValue.loading());
 
   final ClientRepository _repository;
-  Timer? _autoRefreshTimer;
 
   /// Load dashboard data
   Future<void> loadDashboard({bool silent = false}) async {
+    if (!mounted) return;
     if (!silent) {
       state = const AsyncValue.loading();
     }
-    state = await AsyncValue.guard(() => _repository.loadDashboard());
-  }
-
-  /// Start auto-refresh timer for dashboard
-  ///
-  /// Refreshes data silently in the background at configured interval
-  void startAutoRefresh() {
-    _autoRefreshTimer?.cancel();
-    _autoRefreshTimer = Timer.periodic(
-      CacheConfig.clientListAutoRefreshInterval,
-      (_) => loadDashboard(silent: true),
-    );
-  }
-
-  /// Stop auto-refresh timer
-  void stopAutoRefresh() {
-    _autoRefreshTimer?.cancel();
-    _autoRefreshTimer = null;
+    final result = await AsyncValue.guard(() => _repository.loadDashboard());
+    // Auth may have swapped the home screen while this request was in flight.
+    if (!mounted) return;
+    state = result;
   }
 
   /// Search clients
@@ -87,7 +74,6 @@ class ClientController extends StateNotifier<AsyncValue<DashboardData>> {
   Future<ClientInfo> createClient(Map<String, dynamic> clientData) async {
     try {
       final client = await _repository.createClient(clientData);
-      // Reload dashboard to show new client
       await loadDashboard();
       return client;
     } catch (e, stack) {
@@ -99,7 +85,6 @@ class ClientController extends StateNotifier<AsyncValue<DashboardData>> {
   Future<void> updateClient(Map<String, dynamic> updates) async {
     try {
       await _repository.patchClient(updates);
-      // Reload dashboard to show updated client
       await loadDashboard();
     } catch (e, stack) {
       throw AsyncValue.error(e, stack);
@@ -116,7 +101,6 @@ class ClientController extends StateNotifier<AsyncValue<DashboardData>> {
         clientId: clientId,
         statusId: statusId,
       );
-      // Reload dashboard to show updated status
       await loadDashboard();
     } catch (e, stack) {
       throw AsyncValue.error(e, stack);
@@ -127,17 +111,9 @@ class ClientController extends StateNotifier<AsyncValue<DashboardData>> {
   Future<void> deleteClient(int clientId) async {
     try {
       await _repository.deleteClient(clientId);
-      // Reload dashboard to remove deleted client
       await loadDashboard();
     } catch (e, stack) {
       throw AsyncValue.error(e, stack);
     }
   }
-
-  @override
-  void dispose() {
-    stopAutoRefresh();
-    super.dispose();
-  }
 }
-

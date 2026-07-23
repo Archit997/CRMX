@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from uuid import UUID
+
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -72,6 +74,11 @@ class ClientRepository:
     def get_by_phone(self, phone: str) -> Client | None:
         statement = select(Client).where(Client.phone == phone).limit(1)
         return self.session.scalars(statement).first()
+
+    def get_by_assigned_user(self, user_id: UUID) -> list[Client]:
+        """Get all clients assigned to a specific user."""
+        statement = select(Client).where(Client.assigned_to == user_id)
+        return list(self.session.scalars(statement).all())
 
     def add(self, client: Client) -> None:
         self.session.add(client)

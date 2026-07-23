@@ -102,6 +102,38 @@ class AuthController extends StateNotifier<AuthState> {
         otp: otp,
       );
       state = await _stateForUser(user);
+    } on SignupRequiredException catch (e) {
+      // User verified OTP but doesn't exist in Postgres - needs to complete signup
+      final tempUser = AuthUser(
+        id: e.userId,
+        phone: e.phone,
+        name: null,
+        role: null,
+        email: null,
+        contact: null,
+        approvalStatus: null,
+        isActive: false,
+        createdAt: null,
+      );
+      state = SignupRequired(tempUser);
+    } on ApprovalPendingException catch (e) {
+      state = ApprovalPending(
+        AuthUser(
+          id: '',
+          phone: e.phone,
+          approvalStatus: 'pending',
+          isActive: false,
+        ),
+      );
+    } on ApprovalRejectedException catch (e) {
+      state = ApprovalRejected(
+        AuthUser(
+          id: '',
+          phone: e.phone,
+          approvalStatus: 'rejected',
+          isActive: false,
+        ),
+      );
     } on Exception catch (e) {
       state = AuthError(ErrorHandler.getUserFriendlyMessage(e));
     }
@@ -121,6 +153,8 @@ class AuthController extends StateNotifier<AuthState> {
         role: role,
         contact: contact,
       );
+      // Cache profile so approval status checks work after signup
+      _cacheService.cacheCurrentUserData(pendingUser.toMap());
       state = ApprovalPending(pendingUser);
     } on Exception catch (e) {
       state = AuthError(ErrorHandler.getUserFriendlyMessage(e));

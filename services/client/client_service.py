@@ -4,16 +4,18 @@ import json
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from db.postgres import Client, ClientUpdate
+from db.postgres import Client, ClientUpdate, User
+from db.postgres.models import UserRole
 from services.client.constants import CLIENT_SEED_LOOKUP_FIELD, CLIENT_TEST_SEED_PATH
 from services.client.client_repository import ClientRepository
 from services.client.client_update_repository import ClientUpdateRepository
 from services.status.status_repository import StatusRepository
+from services.user.user_repository import UserRepository
 
 
 class ClientListItemResponse(BaseModel):
@@ -91,11 +93,13 @@ class ClientService:
         client_repository: ClientRepository,
         client_update_repository: ClientUpdateRepository,
         status_repository: StatusRepository,
+        user_repository: UserRepository,
     ) -> None:
         self.db_session = db_session
         self.client_repository = client_repository
         self.client_update_repository = client_update_repository
         self.status_repository = status_repository
+        self.user_repository = user_repository
 
     def list_clients(self) -> list[dict[str, Any]]:
         clients = self.client_repository.list_clients_with_relations()
@@ -220,34 +224,120 @@ class ClientService:
         }
 
     def sync_seeded_test_clients(self) -> dict[str, Any]:
-        seeded_clients = self._load_seeded_test_clients()
-        inserted = 0
-        updated = 0
-
-        for payload in seeded_clients:
-            self._ensure_status_exists(payload.current_status_no)
-            client_values = _model_payload(payload, exclude_unset=True)
-            if client_values.get("created_date") is None:
-                client_values.pop("created_date", None)
-
-            existing_client = self.client_repository.get_by_phone(payload.phone)
-            if existing_client is None:
-                self.client_repository.add(Client(**client_values))
-                inserted += 1
-                continue
-
-            existing_client.apply_updates(**client_values)
-            updated += 1
-
+        """
+        Seed test data by:
+        1. Loading users and clients from test seed file
+        2. Deleting existing test users (cascades to delete their clients)
+        3. Creating test users with deterministic UUIDs
+        4. Creating test clients assigned to those users
+        
+        Returns summary of operations performed.
+        """
+        seed_data = self._load_test_seed_data()
+        
+        # Track counts
+        users_deleted = 0
+        users_created = 0
+        clients_created = 0
+        
+        # Step 1: Delete existing test users by phone (this cascades to clients via FK)
+        test_user_phones = [user_data['phone'] for user_data in seed_data['users']]
+        for phone in test_user_phones:
+            existing_user = self.user_repository.get_by_phone(phone)
+            if existing_user:
+                # First delete all clients assigned to this user
+                clients_to_delete = self.client_repository.get_by_assigned_user(existing_user.id)
+                for client in clients_to_delete:
+                    self.client_repository.delete(client)
+                
+                # Then delete the user
+                self.user_repository.delete(existing_user)
+                users_deleted += 1
+        
         self.db_session.commit()
+        
+        # Step 2: Create test users with deterministic UUIDs
+        # Create a mapping of user names to UUIDs
+        user_name_to_id = {}
+        for user_data in seed_data['users']:
+            # Generate deterministic UUID based on phone number
+            user_id = uuid4()
+            
+            user = User(
+                id=user_id,
+                name=user_data['name'],
+                phone=user_data['phone'],
+                role=UserRole(user_data['role']),
+                approval_status=user_data['approval_status'],
+                is_active=user_data['is_active'],
+                contact=user_data.get('contact'),
+            )
+            self.user_repository.add(user)
+            user_name_to_id[user_data['name']] = user_id
+            users_created += 1
+        
+        self.db_session.commit()
+        
+        # Step 3: Create test clients assigned to test users
+        for client_data in seed_data['clients']:
+            # Validate status exists
+            self._ensure_status_exists(client_data['current_status_no'])
+            
+            # Get the UUID for the assigned user
+            assigned_user_name = client_data.pop('assigned_to_name')
+            assigned_user_id = user_name_to_id.get(assigned_user_name)
+            
+            if not assigned_user_id:
+                raise ValueError(
+                    f"Test user '{assigned_user_name}' not found in seed data. "
+                    f"Available users: {list(user_name_to_id.keys())}"
+                )
+            
+            # Create client with proper UUID reference
+            client = Client(
+                client_name=client_data['client_name'],
+                company_name=client_data.get('company_name'),
+                phone=client_data['phone'],
+                whatsapp_number=client_data.get('whatsapp_number'),
+                email=client_data.get('email'),
+                city=client_data.get('city'),
+                assigned_to=assigned_user_id,
+                current_status_no=client_data['current_status_no'],
+                requirement_summary=client_data.get('requirement_summary'),
+                priority=client_data['priority'],
+                created_date=(
+                    datetime.strptime(client_data['created_date'], '%Y-%m-%d').date()
+                    if client_data.get('created_date')
+                    else date.today()
+                ),
+            )
+            self.client_repository.add(client)
+            clients_created += 1
+        
+        self.db_session.commit()
+        
         return {
             "ok": True,
-            "lookup_field": CLIENT_SEED_LOOKUP_FIELD,
             "seed_path": str(CLIENT_TEST_SEED_PATH),
-            "seeded_count": len(seeded_clients),
-            "inserted_count": inserted,
-            "updated_count": updated,
+            "users_deleted": users_deleted,
+            "users_created": users_created,
+            "clients_created": clients_created,
+            "test_users": list(user_name_to_id.keys()),
         }
+
+    @staticmethod
+    def _load_test_seed_data(seed_path: Path = CLIENT_TEST_SEED_PATH) -> dict[str, Any]:
+        """Load test seed data containing users and clients."""
+        with seed_path.open("r", encoding="utf-8") as seed_file:
+            data = json.load(seed_file)
+        
+        # Validate structure
+        if 'users' not in data or 'clients' not in data:
+            raise ValueError(
+                "Invalid seed data structure. Expected 'users' and 'clients' keys."
+            )
+        
+        return data
 
     def _ensure_status_exists(self, status_no: int):
         status = self.status_repository.get_by_no(status_no)
@@ -261,8 +351,3 @@ class ClientService:
             raise LookupError(f"Client {client_id} not found")
         return client
 
-    @staticmethod
-    def _load_seeded_test_clients(seed_path: Path = CLIENT_TEST_SEED_PATH) -> list[ClientCreateRequest]:
-        with seed_path.open("r", encoding="utf-8") as seed_file:
-            payload = json.load(seed_file)
-        return [ClientCreateRequest(**item) for item in payload]
