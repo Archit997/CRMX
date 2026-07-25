@@ -66,9 +66,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=APP_TITLE, version=APP_VERSION, lifespan=lifespan)
 
+origins = [
+    o.strip()
+    for o in (EnvVars.get("ALLOWED_ORIGINS") or "").split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"http://(127\.0\.0\.1|localhost)(:\d+)?",
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -82,7 +88,7 @@ app.include_router(user_router)
 
 # POC router commented out - using Postgres endpoints instead
 # app.include_router(poc_router)
-app.mount("/mobile", StaticFiles(directory=MOBILE_PROTOTYPE_DIR, html=True), name="mobile")
+# app.mount("/mobile", StaticFiles(directory=MOBILE_PROTOTYPE_DIR, html=True), name="mobile")
 
 
 
@@ -95,6 +101,10 @@ async def root(dev: Annotated[dict, Depends(require_developer)]) -> RedirectResp
     """
     # Redirect to docs instead of mobile prototype (POC)
     return RedirectResponse(url="/docs")
+
+@app.get("/health")
+async def health() -> JSONResponse:
+    return JSONResponse(status_code=200, content={"status": "ok"})
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
