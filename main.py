@@ -66,9 +66,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=APP_TITLE, version=APP_VERSION, lifespan=lifespan)
 
+origins = [
+    o.strip()
+    for o in (EnvVars.get("ALLOWED_ORIGINS") or "").split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=EnvVars.get("ALLOWED_ORIGINS"),
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
