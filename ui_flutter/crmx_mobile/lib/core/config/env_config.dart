@@ -10,16 +10,30 @@ class EnvConfig {
 
   /// Get environment variable with optional default value
   static String get(String key, {String defaultValue = ''}) {
-    return dotenv.get(key, fallback: defaultValue);
+    try {
+      return dotenv.get(key, fallback: defaultValue);
+    } on NotInitializedError {
+      return defaultValue;
+    }
   }
 
   /// Check if environment variable exists
   static bool has(String key) {
-    return dotenv.env.containsKey(key);
+    try {
+      return dotenv.env.containsKey(key);
+    } on NotInitializedError {
+      return false;
+    }
   }
 
   /// Get all environment variables
-  static Map<String, String> get all => dotenv.env;
+  static Map<String, String> get all {
+    try {
+      return dotenv.env;
+    } on NotInitializedError {
+      return const {};
+    }
+  }
 
   // ============================================================================
   // Convenience getters for common environment variables

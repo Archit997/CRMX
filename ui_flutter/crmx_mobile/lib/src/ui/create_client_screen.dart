@@ -19,8 +19,7 @@ class CreateClientScreen extends ConsumerStatefulWidget {
   final AuthUser currentUser;
 
   @override
-  ConsumerState<CreateClientScreen> createState() =>
-      _CreateClientScreenState();
+  ConsumerState<CreateClientScreen> createState() => _CreateClientScreenState();
 }
 
 class _CreateClientScreenState extends ConsumerState<CreateClientScreen> {
@@ -59,7 +58,9 @@ class _CreateClientScreenState extends ConsumerState<CreateClientScreen> {
           _selectedAssignedTo = users
               .firstWhere(
                 (u) => u.id == widget.currentUser.id,
-                orElse: () => users.isNotEmpty ? users.first : const AssignableUser(id: '', name: ''),
+                orElse: () => users.isNotEmpty
+                    ? users.first
+                    : const AssignableUser(id: '', name: ''),
               )
               .id;
         });
@@ -201,7 +202,7 @@ class _CreateClientScreenState extends ConsumerState<CreateClientScreen> {
 
             // Assigned To Dropdown
             DropdownButtonFormField<String>(
-              value: _selectedAssignedTo,
+              initialValue: _selectedAssignedTo,
               decoration: const InputDecoration(
                 labelText: 'Assigned To',
                 prefixIcon: Icon(Icons.person_outline),
@@ -244,7 +245,7 @@ class _CreateClientScreenState extends ConsumerState<CreateClientScreen> {
 
             // Status Dropdown
             DropdownButtonFormField<int>(
-              value: _selectedStatusNo,
+              initialValue: _selectedStatusNo,
               decoration: const InputDecoration(
                 labelText: 'Status',
                 prefixIcon: Icon(Icons.timeline),
@@ -267,15 +268,15 @@ class _CreateClientScreenState extends ConsumerState<CreateClientScreen> {
 
             // Priority Dropdown
             DropdownButtonFormField<String>(
-              value: _selectedPriority,
+              initialValue: _selectedPriority,
               decoration: const InputDecoration(
                 labelText: 'Priority',
                 prefixIcon: Icon(Icons.flag),
               ),
               items: const [
-                DropdownMenuItem(value: 'Hot', child: Text('🔴 Hot')),
-                DropdownMenuItem(value: 'Warm', child: Text('🟡 Warm')),
-                DropdownMenuItem(value: 'Cold', child: Text('🔵 Cold')),
+                DropdownMenuItem(value: 'Hot', child: Text('Hot')),
+                DropdownMenuItem(value: 'Warm', child: Text('Warm')),
+                DropdownMenuItem(value: 'Cold', child: Text('Cold')),
               ],
               onChanged: (value) {
                 if (value != null) {
@@ -315,10 +316,10 @@ class _CreateClientScreenState extends ConsumerState<CreateClientScreen> {
             // Cancel Button
             OutlinedButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
+              child: const Text('Cancel'),
             ),
           ],
         ),

@@ -1,264 +1,93 @@
 # CRMX
 
-A modern CRM system with FastAPI backend and Flutter frontend for managing client relationships, status tracking, and follow-ups.
+CRMX is a multi-tenant CRM for phone- and WhatsApp-led sales teams. The
+repository contains a FastAPI/Postgres backend and a separate Flutter mobile
+application.
 
-## Prerequisites
+## Repository layout
 
-- Python 3.8+
-- Flutter 3.0+
-- PostgreSQL (via Supabase)
-
-## Project Structure
-
-```
+```text
 CRMX/
-├── main.py                 # FastAPI application entry point
-├── requirements.txt        # Python dependencies
-├── .env                    # Environment variables (not in git)
-├── .env.sample            # Environment variables template
-├── db/                    # Database models and connections
-├── services/              # Business logic and API controllers
-├── utils/                 # Utility functions
-└── ui_flutter/            # Flutter mobile/web application
-    └── crmx_mobile/       # Flutter app source
+|-- db/postgres/                 SQLAlchemy models and ordered migrations
+|-- services/                    Auth, organizations, users, clients, audit
+|-- tests/                       Backend security and service tests
+|-- ui_flutter/crmx_mobile/      Flutter application
+|-- docs/                        Setup and production runbooks
+|-- main.py                      FastAPI entry point
+`-- .env.sample                  Backend configuration template
 ```
 
-## Backend Setup
+## Local setup
 
-### 1. Create Virtual Environment
-
-```bash
-# Navigate to project root
-cd /Users/architaggarwal/Documents/CRMX
-
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# On macOS/Linux:
-source venv/bin/activate
-
-# On Windows:
-# venv\Scripts\activate
-```
-
-### 2. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Configure Environment Variables
-
-Copy `.env.sample` to `.env` and fill in your credentials:
+Backend:
 
 ```bash
 cp .env.sample .env
+python3 -m venv .venv
+./.venv/bin/pip install -r requirements.txt
+./.venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
-Edit `.env` with your actual values:
-- MongoDB credentials (if using MongoDB features)
-- WhatsApp API credentials (if using WhatsApp features)
-- Supabase Postgres credentials
-
-### 4. Start Backend Server
-
-```bash
-python main.py
-```
-
-The backend API will start on `http://127.0.0.1:8000`
-
-You can access:
-- **API Documentation**: http://127.0.0.1:8000/docs
-- **Alternative Docs**: http://127.0.0.1:8000/redoc
-
-## Frontend Setup (Flutter)
-
-### 1. Navigate to Flutter Project
+Flutter:
 
 ```bash
 cd ui_flutter/crmx_mobile
-```
-
-### 2. Install Flutter Dependencies
-
-```bash
+cp .env.sample .env
 flutter pub get
+flutter run -d chrome --web-port 3000
 ```
 
-### 3. Run Flutter App
+Local URLs:
 
-**For Web (Chrome)**:
-```bash
-flutter run -d chrome --dart-define=CRMX_API_BASE=http://127.0.0.1:8000
+- Flutter: `http://127.0.0.1:3000`
+- API: `http://127.0.0.1:8000`
+- OpenAPI docs in development: `http://127.0.0.1:8000/docs`
+- Liveness: `http://127.0.0.1:8000/health`
+- Database readiness: `http://127.0.0.1:8000/ready`
+
+For Android Emulator use `http://10.0.2.2:8000` as `BACKEND_API_BASE`.
+For a physical phone, bind the backend to the Mac LAN interface and use the
+Mac's LAN IP.
+
+## Database
+
+Apply migrations in numeric order. The organization/admin feature requires:
+
+```text
+db/postgres/004_add_organizations.sql
 ```
 
-**For Android Emulator**:
-```bash
-flutter run -d android --dart-define=CRMX_API_BASE=http://127.0.0.1:8000
-```
+It creates organization ownership, soft-deletion fields, audit events, indexes,
+and RLS protection. See [organization setup](docs/organization-admin-setup.md)
+for the user flow.
 
-**For iOS Simulator** (macOS only):
-```bash
-flutter run -d ios --dart-define=CRMX_API_BASE=http://127.0.0.1:8000
-```
+The current Supabase project predates the migration ledger. Follow the baseline
+instructions in [production readiness](docs/production-readiness.md) before
+applying migration 004.
 
-**Note**: Make sure to use `http://127.0.0.1:8000` (without `/api` suffix) as the API base URL.
+## Authentication flow
 
-## Quick Start (Both Backend & Frontend)
+1. Supabase Phone Auth verifies OTP.
+2. A new company owner selects **Set up company** and becomes its first admin.
+3. Employees select **Join company** with the admin's rotatable company code.
+4. Admins approve or reject pending requests.
+5. Every protected backend query is scoped to the authenticated organization.
 
-Open two terminal windows:
+The Flutter app receives only the Supabase publishable key. Database passwords
+and the Supabase service-role key are backend-only.
 
-**Terminal 1 - Backend**:
-```bash
-cd /Users/architaggarwal/Documents/CRMX
-source venv/bin/activate
-python main.py
-```
-
-**Terminal 2 - Frontend**:
-```bash
-cd /Users/architaggarwal/Documents/CRMX/ui_flutter/crmx_mobile
-flutter run -d chrome --dart-define=CRMX_API_BASE=http://127.0.0.1:8000
-```
-
-## Features
-
-### Current Features
-- ✅ **Client Management**: Create, view, edit, and search clients
-- ✅ **Status Tracking**: Track client status through customizable stages
-- ✅ **Priority Management**: Categorize clients as Hot, Warm, or Cold
-- ✅ **Search & Filter**: Real-time client search by name, company, phone, or status
-- ✅ **Client Details**: View and edit comprehensive client information
-- ✅ **Responsive UI**: Works on web, iOS, and Android
-
-### API Endpoints
-
-Main endpoints available:
-- `GET /client-list` - List all clients
-- `GET /client/{search_term}` - Search clients
-- `POST /client` - Create new client
-- `PATCH /client-list` - Update client details
-- `POST /change-client-status` - Change client status
-- `GET /master-status` - Get all available statuses
-
-Full API documentation: http://127.0.0.1:8000/docs
-
-## Development
-
-### Backend Development
-
-The backend uses:
-- **FastAPI** for the REST API
-- **SQLAlchemy** for database ORM
-- **Pydantic** for data validation
-- **Uvicorn** as the ASGI server
-
-Hot reload is enabled by default when running `python main.py`.
-
-### Frontend Development
-
-The Flutter app features:
-- **Material Design 3** UI components
-- **Responsive layout** for all screen sizes
-- **State management** using StatefulWidget
-- **API integration** with fallback to mock data
-- **Form validation** for data integrity
-
-## Environment Variables
-
-Required environment variables in `.env`:
+## Tests
 
 ```bash
-# Postgres - Supabase
-SUPABASE_DB_HOST=your-db-host.supabase.co
-SUPABASE_DB_PORT=5432
-SUPABASE_DB_NAME=postgres
-SUPABASE_DB_USER=postgres
-SUPABASE_DB_PASSWORD=your-password
-SUPABASE_SSL_MODE=require
-
-# MongoDB (optional)
-MONGO_URI=your-mongo-connection-string
-
-# WhatsApp Business API (optional)
-WA_ACCESS_TOKEN=your-whatsapp-token
-WA_PHONE_ID=your-phone-id
-WA_BUSINESS_ACC_ID=your-business-account-id
-WA_SENDER_ID=your-sender-id
+./.venv/bin/python -m pytest -q
+cd ui_flutter/crmx_mobile
+flutter test
+flutter analyze --no-fatal-infos
 ```
 
-## Testing
+## Production
 
-### Backend Testing
-
-```bash
-# Run backend
-python main.py
-
-# Test API endpoints
-curl http://127.0.0.1:8000/client-list
-curl http://127.0.0.1:8000/master-status
-```
-
-### Frontend Testing
-
-The Flutter app includes visual indicators:
-- 🟢 **Green "API" badge**: Connected to backend successfully
-- 🟡 **Yellow "Mock" badge**: Using mock data (backend unreachable)
-
-## Troubleshooting
-
-### Backend Issues
-
-**Problem**: `ModuleNotFoundError`
-```bash
-# Solution: Make sure virtual environment is activated and dependencies installed
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-**Problem**: Database connection fails
-```bash
-# Solution: Check .env file has correct Supabase credentials
-# Verify SUPABASE_DB_HOST, SUPABASE_DB_PASSWORD, etc.
-```
-
-### Frontend Issues
-
-**Problem**: "Using mock data" warning
-```bash
-# Solution: Ensure backend is running on http://127.0.0.1:8000
-# Check API_BASE URL doesn't have /api suffix
-flutter run -d chrome --dart-define=CRMX_API_BASE=http://127.0.0.1:8000
-```
-
-**Problem**: CORS errors in browser console
-```bash
-# Solution: Backend CORS is configured for localhost
-# Make sure you're accessing from http://127.0.0.1 or http://localhost
-```
-
-## Documentation
-
-Additional documentation available:
-- `CREATE_CLIENT_FEATURE.md` - Client creation functionality
-- `CLIENT_EDIT_FEATURE.md` - Client editing functionality
-- `TEST_EDIT_FEATURE.md` - Testing guide for edit feature
-- `docs/poc-endpoints-and-mobile-testing.md` - API endpoints reference
-
-## Contributing
-
-1. Create a feature branch
-2. Make your changes
-3. Test both backend and frontend
-4. Submit a pull request
-
-## License
-
-[Your License Here]
-
-## Support
-
-For issues and questions, please contact the development team.
+Read [production readiness](docs/production-readiness.md) before using real
+company data. It covers migrations, secret rotation, pooler configuration,
+backups, monitoring, rate limits, mobile release controls, and recording
+compliance.

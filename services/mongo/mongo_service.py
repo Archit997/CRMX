@@ -10,7 +10,7 @@ from services.mongo.constants import (
     STATUS_MASTER_SEED_PATH,
 )
 from utils.constants import LOG_LEVEL_ERROR
-from utils.logger import AppLogger
+from utils.logging import AppLogger
 
 logger = AppLogger.get_logger(__name__)
 

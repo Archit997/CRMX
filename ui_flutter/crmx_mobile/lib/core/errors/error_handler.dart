@@ -81,8 +81,9 @@ class ErrorHandler {
       // Check for specific status codes
       switch (exception.statusCode) {
         case 400:
-          return _cleanBackendMessage(exception.message, 
-              fallback: 'Invalid request. Please check your input and try again.');
+          return _cleanBackendMessage(exception.message,
+              fallback:
+                  'Invalid request. Please check your input and try again.');
         case 403:
           return 'You do not have permission to perform this action.';
         case 404:
@@ -112,7 +113,8 @@ class ErrorHandler {
   }
 
   /// Clean backend error messages to make them more user-friendly
-  static String _cleanBackendMessage(String message, {required String fallback}) {
+  static String _cleanBackendMessage(String message,
+      {required String fallback}) {
     // If message is empty or too technical, use fallback
     if (message.isEmpty) {
       return fallback;
@@ -153,9 +155,9 @@ class ErrorHandler {
     }
 
     // Ensure it ends with punctuation
-    if (cleaned.isNotEmpty && 
-        !cleaned.endsWith('.') && 
-        !cleaned.endsWith('!') && 
+    if (cleaned.isNotEmpty &&
+        !cleaned.endsWith('.') &&
+        !cleaned.endsWith('!') &&
         !cleaned.endsWith('?')) {
       cleaned += '.';
     }
@@ -166,7 +168,7 @@ class ErrorHandler {
   /// Get a user-friendly message for common operations
   static String getOperationError(String operation, dynamic error) {
     final baseMessage = getUserFriendlyMessage(error);
-    
+
     switch (operation.toLowerCase()) {
       case 'load':
       case 'fetch':

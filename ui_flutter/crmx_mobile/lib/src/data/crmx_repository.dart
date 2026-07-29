@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import '../../core/logging/app_logger.dart';
 
 import '../models/crmx_models.dart';
 
@@ -75,9 +76,10 @@ class CRMXRepository {
       return ClientInfo.fromJson(clientMap);
     }).toList();
 
-    print('✅ Successfully loaded data from Postgres API: $_apiBaseUrl');
-    print('   Loaded ${clients.length} clients from /client-list');
-    print('   Loaded ${statuses.length} statuses from /master-status');
+    AppLogger.info(
+      'dashboard_loaded clients=${clients.length} statuses=${statuses.length}',
+      name: 'crmx.clients',
+    );
 
     return DashboardData(
       statuses: statuses,
@@ -147,7 +149,7 @@ class CRMXRepository {
   }
 
   Future<ClientInfo> createClient(Map<String, dynamic> clientData) async {
-    print('📤 Creating client with data: $clientData');
+    AppLogger.debug('create_client_started', name: 'crmx.clients');
     final response = await _client.post(
       Uri.parse('$_apiBaseUrl/client'),
       headers: {'Content-Type': 'application/json'},
@@ -155,12 +157,15 @@ class CRMXRepository {
     );
 
     if (response.statusCode != 201) {
-      print('❌ Create client failed: ${response.statusCode} ${response.body}');
+      AppLogger.error(
+        'create_client_failed status=${response.statusCode}',
+        name: 'crmx.clients',
+      );
       throw StateError(
           'Create client failed: ${response.statusCode} ${response.body}');
     }
 
-    print('✅ Client created successfully');
+    AppLogger.info('client_created', name: 'crmx.clients');
     final clientInfo =
         ClientInfo.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
     return clientInfo;
@@ -231,7 +236,7 @@ class CRMXRepository {
   }
 
   Future<Map<String, dynamic>> patchClient(Map<String, dynamic> updates) async {
-    print('📤 Patching client with data: $updates');
+    AppLogger.debug('update_client_started', name: 'crmx.clients');
     final response = await _client.patch(
       Uri.parse('$_apiBaseUrl/client-list'),
       headers: {'Content-Type': 'application/json'},
@@ -239,28 +244,40 @@ class CRMXRepository {
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      print('❌ Patch client failed: ${response.statusCode} ${response.body}');
+      AppLogger.error(
+        'update_client_failed status=${response.statusCode}',
+        name: 'crmx.clients',
+      );
       throw StateError(
           'Patch client failed: ${response.statusCode} ${response.body}');
     }
 
-    print('✅ Client patched successfully');
+    AppLogger.info('client_updated', name: 'crmx.clients');
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
   Future<void> deleteClient(int clientId) async {
-    print('📤 Deleting client: $clientId');
+    AppLogger.debug(
+      'delete_client_started client_id=$clientId',
+      name: 'crmx.clients',
+    );
     final response = await _client.delete(
       Uri.parse('$_apiBaseUrl/client?client_id=$clientId'),
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      print('❌ Delete client failed: ${response.statusCode} ${response.body}');
+      AppLogger.error(
+        'delete_client_failed client_id=$clientId status=${response.statusCode}',
+        name: 'crmx.clients',
+      );
       throw StateError(
           'Delete client failed: ${response.statusCode} ${response.body}');
     }
 
-    print('✅ Client deleted successfully');
+    AppLogger.info(
+      'client_deleted client_id=$clientId',
+      name: 'crmx.clients',
+    );
   }
 
   Future<List<dynamic>> _getList(String path) async {

@@ -9,6 +9,8 @@ from services.auth.auth_service import AuthService
 from services.client.client_repository import ClientRepository
 from services.client.client_service import ClientService
 from services.client.client_update_repository import ClientUpdateRepository
+from services.organization.organization_repository import OrganizationRepository
+from services.organization.organization_service import OrganizationService
 from services.status.status_repository import StatusRepository
 from services.status.status_service import StatusService
 from services.user.user_repository import UserRepository
@@ -46,6 +48,17 @@ def get_status_service(db_session: Session = Depends(get_db_session)) -> StatusS
 def get_user_service(db_session: Session = Depends(get_db_session)) -> UserService:
     return UserService(
         db_session=db_session,
+        user_repository=UserRepository(db_session),
+        organization_repository=OrganizationRepository(db_session),
+    )
+
+
+def get_organization_service(
+    db_session: Session = Depends(get_db_session),
+) -> OrganizationService:
+    return OrganizationService(
+        db_session=db_session,
+        organization_repository=OrganizationRepository(db_session),
         user_repository=UserRepository(db_session),
     )
 

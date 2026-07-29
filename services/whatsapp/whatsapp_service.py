@@ -3,7 +3,7 @@ import requests
 from services.whatsapp.constants import GRAPH_API_VERSION, MESSAGES_API_URL
 from utils.constants import LOG_LEVEL_ERROR
 from utils.env_vars import EnvVars
-from utils.logger import AppLogger
+from utils.logging import AppLogger
 
 logger = AppLogger.get_logger(__name__)
 

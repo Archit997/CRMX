@@ -19,16 +19,16 @@ SUPABASE_DB_USER=postgres
 SUPABASE_DB_PASSWORD=<database_password>
 SUPABASE_SSL_MODE=require
 
-# Keep false for this POC unless backend JWKS verification is implemented.
-SUPABASE_VERIFY_JWT=false
-SUPABASE_JWT_SECRET=<optional_legacy_hs256_secret>
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+SUPABASE_VERIFY_JWT=true
 ```
 
 Do not commit `.env`. It is gitignored.
 
 ## 2. Flutter environment
 
-Create `/Users/omshrivastava/Documents/New project 4/CRMX/ui_flutter/crmx_mobile/.env` from `ui_flutter/crmx_mobile/.env.example`.
+Create `/Users/omshrivastava/Documents/New project 4/CRMX/ui_flutter/crmx_mobile/.env` from `ui_flutter/crmx_mobile/.env.sample`.
 
 ```env
 SUPABASE_URL=https://<project-ref>.supabase.co
@@ -76,11 +76,10 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-Run migrations:
+Run pending migrations:
 
 ```bash
-env PYTHONPATH=. .venv/bin/python scripts/run_sql_file.py db/postgres/001_init_crmx_tables.sql
-env PYTHONPATH=. .venv/bin/python scripts/run_sql_file.py db/postgres/002_add_users_table.sql
+env PYTHONPATH=. .venv/bin/python scripts/apply_migrations.py
 ```
 
 Verify schema:
@@ -92,7 +91,7 @@ env PYTHONPATH=. .venv/bin/python scripts/check_supabase_schema.py
 Expected tables:
 
 ```text
-client_info, client_updates, status_master, users
+client_info, client_updates, organizations, status_master, users
 ```
 
 ## 5. Run locally
@@ -108,36 +107,26 @@ Flutter:
 ```bash
 cd ui_flutter/crmx_mobile
 flutter pub get
-flutter run -d chrome --web-port 5180
+flutter run -d chrome --web-port 3000
 ```
 
-## 6. First manager bootstrap
+## 6. First organization bootstrap
 
-The first manager cannot approve themself from the app because no manager exists yet. After first signup, approve the first manager manually:
+After OTP verification, select `Set up company`, enter the organization name,
+and submit. The backend creates the organization and approves that user as its
+initial admin. No manual SQL approval is required.
 
-```sql
-update public.users
-set
-  role = 'manager',
-  approval_status = 'approved',
-  is_active = true,
-  verified_at = now(),
-  updated_at = now()
-where phone = '<phone_used_in_signup>';
-```
-
-Then click `Check again` in the app.
-
-After this, approved managers can use the app's pending users screen to approve other users.
+The admin workspace displays a company code. Employees use that code under
+`Join company`; their requests remain pending until an admin approves them.
 
 ## 7. Current auth flow
 
 1. User enters phone.
 2. Supabase sends/verifies OTP.
-3. Flutter asks backend for `/auth/profile/{user_id}`.
+3. Flutter asks the backend for `/api/auth/user/status`.
 4. If no CRMX profile exists, Flutter shows signup form.
-5. Signup creates `public.users` row with `approval_status='pending'`.
-6. Manager approves user.
+5. The first admin creates an organization, or an employee joins with its code.
+6. Organization admins approve or reject team requests.
 7. Approved active users land on the CRM client dashboard.
 
 ## 8. Verification commands

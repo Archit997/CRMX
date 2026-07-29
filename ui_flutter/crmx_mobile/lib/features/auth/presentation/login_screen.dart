@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/config/env_config.dart';
 import '../../../core/utils/phone_validator.dart';
 import '../domain/auth_state.dart';
 import 'auth_controller.dart';
@@ -106,13 +107,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Phone Number',
                     hintText: '9876543210',
-                    prefixIcon: Icon(Icons.phone),
-                    border: OutlineInputBorder(),
-                    helperText:
-                        'Enter 10-digit Indian mobile number. Test OTP is 123456 for configured numbers.',
+                    prefixIcon: const Icon(Icons.phone),
+                    border: const OutlineInputBorder(),
+                    helperText: EnvConfig.isDevelopment
+                        ? 'Enter a 10-digit Indian mobile number. Configured test numbers use the test OTP.'
+                        : 'Enter a 10-digit Indian mobile number.',
+                    helperMaxLines: 2,
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {

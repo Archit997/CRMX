@@ -18,9 +18,17 @@ class OtpSent extends AuthState {
 }
 
 class SignupRequired extends AuthState {
-  const SignupRequired(this.user);
+  const SignupRequired(this.user, {this.error});
 
   final AuthUser user;
+  final String? error;
+}
+
+class OrganizationSetupRequired extends AuthState {
+  const OrganizationSetupRequired(this.user, {this.error});
+
+  final AuthUser user;
+  final String? error;
 }
 
 class ApprovalPending extends AuthState {

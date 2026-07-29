@@ -1,3 +1,19 @@
-from db.postgres import Base, Client, ClientUpdate, StatusMaster
+from db.postgres import (
+    AuditEvent,
+    Base,
+    Client,
+    ClientUpdate,
+    Organization,
+    StatusMaster,
+    User,
+)
 
-__all__ = ["Base", "Client", "ClientUpdate", "StatusMaster"]
+__all__ = [
+    "AuditEvent",
+    "Base",
+    "Client",
+    "ClientUpdate",
+    "Organization",
+    "StatusMaster",
+    "User",
+]

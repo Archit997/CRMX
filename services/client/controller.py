@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
@@ -11,7 +12,8 @@ from services.client.client_service import (
 )
 from services.postgres.dependencies import get_client_service
 from utils.constants import LOG_LEVEL_ERROR
-from utils.logger import AppLogger
+from utils.env_vars import EnvVars
+from utils.logging import AppLogger
 
 logger = AppLogger.get_logger(__name__)
 
@@ -32,7 +34,7 @@ class ClientController:
         Access: All authenticated users
         """
         try:
-            return client_service.list_clients()
+            return client_service.list_clients(_organization_id(current_user))
         except Exception as exc:
             logger.log(
                 LOG_LEVEL_ERROR,
@@ -55,7 +57,9 @@ class ClientController:
         Access: All authenticated users
         """
         try:
-            return client_service.search_clients(search_term)
+            return client_service.search_clients(
+                search_term, _organization_id(current_user)
+            )
         except Exception as exc:
             logger.log(
                 LOG_LEVEL_ERROR,
@@ -78,7 +82,11 @@ class ClientController:
         Access: All authenticated users
         """
         try:
-            return client_service.create_client(payload)
+            return client_service.create_client(
+                payload,
+                _organization_id(current_user),
+                UUID(current_user["id"]),
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except Exception as exc:
@@ -103,7 +111,11 @@ class ClientController:
         Access: All authenticated users
         """
         try:
-            return client_service.patch_client(payload)
+            return client_service.patch_client(
+                payload,
+                _organization_id(current_user),
+                UUID(current_user["id"]),
+            )
         except LookupError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ValueError as exc:
@@ -125,21 +137,25 @@ class ClientController:
         client_service: Annotated[ClientService, Depends(get_client_service)],
     ) -> dict:
         """
-        Delete a client.
+        Archive a client while preserving its history and audit records.
         
         Access: MANAGER, ADMIN only
         """
         try:
-            return client_service.delete_client(client_id)
+            return client_service.delete_client(
+                client_id,
+                _organization_id(manager),
+                UUID(manager["id"]),
+            )
         except LookupError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except Exception as exc:
             logger.log(
                 LOG_LEVEL_ERROR,
-                f"Delete client failed for {request.method} {request.url.path}, error: {exc}",
+                f"Archive client failed for {request.method} {request.url.path}, error: {exc}",
                 exc_info=True,
             )
-            raise HTTPException(status_code=500, detail="Failed to delete client") from exc
+            raise HTTPException(status_code=500, detail="Failed to archive client") from exc
 
     @staticmethod
     @router.post("/client-test-seed")
@@ -151,10 +167,17 @@ class ClientController:
         """
         Sync test client data (for development/testing).
         
-        Access: All authenticated users
+        Access: DEV role only, and unavailable in production
         """
+        if EnvVars.get("ENVIRONMENT", "development").lower() == "production":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Not found",
+            )
         try:
-            return client_service.sync_seeded_test_clients()
+            return client_service.sync_seeded_test_clients(
+                _organization_id(current_user)
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except Exception as exc:
@@ -179,7 +202,11 @@ class ClientController:
         Access: All authenticated users
         """
         try:
-            return client_service.change_client_status(payload)
+            return client_service.change_client_status(
+                payload,
+                _organization_id(current_user),
+                UUID(current_user["id"]),
+            )
         except LookupError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ValueError as exc:
@@ -191,6 +218,16 @@ class ClientController:
                 exc_info=True,
             )
             raise HTTPException(status_code=500, detail="Failed to change client status") from exc
+
+
+def _organization_id(user: dict) -> UUID:
+    value = user.get("organization_id")
+    if not value:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Organization setup is required",
+        )
+    return UUID(value)
 
 
 client_router = ClientController.router

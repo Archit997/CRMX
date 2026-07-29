@@ -6,21 +6,20 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from supabase import Client, create_client
+from supabase_auth.errors import AuthApiError
+from starlette.concurrency import run_in_threadpool
 
 from services.auth.constants import (
     ERROR_AUTH_FAILED,
     ERROR_INVALID_OTP,
     ERROR_INVALID_PHONE,
     ERROR_SEND_OTP_FAILED,
-    ERROR_USER_INACTIVE,
-    ERROR_USER_PENDING,
-    ERROR_USER_REJECTED,
     PHONE_REGEX_PATTERN,
 )
 from services.user.user_service import UserService
 from utils.constants import LOG_LEVEL_ERROR, LOG_LEVEL_INFO
 from utils.env_vars import EnvVars
-from utils.logger import AppLogger
+from utils.logging import AppLogger
 
 logger = AppLogger.get_logger(__name__)
 
@@ -67,31 +66,48 @@ class AuthService:
 
         try:
             # Call Supabase Auth API to send OTP
-            response = self.supabase.auth.sign_in_with_otp(
+            await run_in_threadpool(
+                self.supabase.auth.sign_in_with_otp,
                 {
                     "phone": phone,
                     "options": {
-                        "should_create_user": True,  # Auto-create if doesn't exist
+                        "should_create_user": True,
                     },
-                }
+                },
             )
 
-            logger.log(LOG_LEVEL_INFO, f"OTP sent successfully to {phone}")
+            logger.log(LOG_LEVEL_INFO, "otp_send_succeeded")
 
             return {"success": True, "message": "OTP sent successfully", "phone": phone}
 
-        except Exception as e:
-            logger.log(LOG_LEVEL_ERROR, f"Failed to send OTP to {phone}: {e}", exc_info=True)
+        except AuthApiError as exc:
+            logger.warning(
+                "otp_send_rejected provider_status=%s",
+                exc.status,
+            )
+            if exc.status == status.HTTP_429_TOO_MANY_REQUESTS:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Too many OTP requests. Please wait before retrying.",
+                ) from exc
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=ERROR_SEND_OTP_FAILED,
+            ) from exc
+        except Exception as e:
+            logger.log(
+                LOG_LEVEL_ERROR,
+                "otp_send_failed",
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=ERROR_SEND_OTP_FAILED,
             ) from e
 
     async def verify_otp(self, phone: str, otp: str) -> dict[str, Any]:
         """
-        Verify OTP and return authentication tokens only.
-        
-        Client must call /api/user/me to get user data after authentication.
+        Verify OTP and return the Supabase session plus CRMX profile state.
 
         Args:
             phone: Phone number in E.164 format
@@ -123,8 +139,9 @@ class AuthService:
             # 1. Verify OTP with Supabase
             # ================================================================
 
-            response = self.supabase.auth.verify_otp(
-                {"phone": phone, "token": otp, "type": "sms"}
+            response = await run_in_threadpool(
+                self.supabase.auth.verify_otp,
+                {"phone": phone, "token": otp, "type": "sms"},
             )
 
             # Check if verification was successful
@@ -139,17 +156,27 @@ class AuthService:
             supabase_session = response.session
 
             user_id = UUID(supabase_user.id)
-            logger.log(LOG_LEVEL_INFO, f"OTP verified successfully for user {user_id}")
+            logger.log(
+                LOG_LEVEL_INFO,
+                "otp_verify_provider_succeeded user_id=%s",
+                user_id,
+            )
 
             # ================================================================
             # 2. Check if user exists in Postgres
             # ================================================================
 
             try:
-                postgres_user = self.user_service.get_user(user_id)
+                postgres_user = self.user_service.get_user_profile(user_id)
             except LookupError:
+                postgres_user = {"exists": False}
+            if not postgres_user.get("exists"):
                 # User doesn't exist in Postgres yet - needs signup
-                logger.log(LOG_LEVEL_INFO, f"User {user_id} not found in Postgres, requires signup")
+                logger.log(
+                    LOG_LEVEL_INFO,
+                    "auth_profile_missing user_id=%s",
+                    user_id,
+                )
                 return {
                     "requires_signup": True,
                     "supabase_user_id": str(user_id),
@@ -158,40 +185,13 @@ class AuthService:
                     "message": "Please complete signup",
                 }
 
-            # ================================================================
-            # 3. Validate approval status and active state
-            # ================================================================
-
             approval_status = postgres_user.get("approval_status")
-
-            if approval_status != "approved":
-                if approval_status == "pending":
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail=ERROR_USER_PENDING,
-                    )
-                elif approval_status == "rejected":
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail=ERROR_USER_REJECTED,
-                    )
-                else:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"Account status: {approval_status}",
-                    )
-
-            if not postgres_user.get("is_active"):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=ERROR_USER_INACTIVE,
-                )
-
-            # ================================================================
-            # 4. Return ONLY tokens (no user data)
-            # ================================================================
-
-            logger.log(LOG_LEVEL_INFO, f"User {user_id} authenticated successfully")
+            logger.log(
+                LOG_LEVEL_INFO,
+                "otp_verify_succeeded user_id=%s account_status=%s",
+                user_id,
+                approval_status,
+            )
 
             return {
                 "token": supabase_session.access_token,
@@ -199,16 +199,32 @@ class AuthService:
                 "token_type": "bearer",
                 "expires_in": supabase_session.expires_in,
                 "requires_signup": False,
+                "account_status": approval_status,
+                "user": postgres_user,
             }
 
         except HTTPException:
             # Re-raise HTTP exceptions
             raise
 
+        except AuthApiError as exc:
+            logger.warning(
+                "otp_verify_rejected provider_status=%s",
+                exc.status,
+            )
+            if exc.status == status.HTTP_429_TOO_MANY_REQUESTS:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Too many verification attempts. Please wait and retry.",
+                ) from exc
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=ERROR_INVALID_OTP,
+            ) from exc
         except Exception as e:
             logger.log(
                 LOG_LEVEL_ERROR,
-                f"Failed to verify OTP for {phone}: {e}",
+                "otp_verify_failed",
                 exc_info=True,
             )
             raise HTTPException(
@@ -245,7 +261,10 @@ class AuthService:
         """
         try:
             # Call Supabase to refresh the session
-            response = self.supabase.auth.refresh_session(refresh_token)
+            response = await run_in_threadpool(
+                self.supabase.auth.refresh_session,
+                refresh_token,
+            )
             
             if not response.session:
                 raise HTTPException(
@@ -278,7 +297,11 @@ class AuthService:
                     detail="Account is inactive",
                 )
             
-            logger.log(LOG_LEVEL_INFO, f"Token refreshed successfully for user {user_id}")
+            logger.log(
+                LOG_LEVEL_INFO,
+                "token_refresh_succeeded user_id=%s",
+                user_id,
+            )
             
             return {
                 "token": session.access_token,
@@ -289,15 +312,23 @@ class AuthService:
             
         except HTTPException:
             raise
-        
+
+        except AuthApiError as exc:
+            logger.warning(
+                "token_refresh_rejected provider_status=%s",
+                exc.status,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token refresh failed",
+            ) from exc
         except Exception as e:
             logger.log(
                 LOG_LEVEL_ERROR,
-                f"Failed to refresh token: {e}",
+                "token_refresh_failed",
                 exc_info=True,
             )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token refresh failed",
             ) from e
-

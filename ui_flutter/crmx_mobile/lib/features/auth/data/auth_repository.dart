@@ -13,7 +13,7 @@ abstract class AuthRepository {
   });
 
   /// Get app profile and approval state for a Supabase auth user
-  /// 
+  ///
   /// If [forceRefresh] is true, bypasses cache and fetches fresh data from backend.
   /// Useful when you know the user's approval status may have changed (e.g., after admin approval).
   Future<AuthUser?> getAppProfile(AuthUser user, {bool forceRefresh = false});
@@ -23,6 +23,15 @@ abstract class AuthRepository {
     required AuthUser user,
     required String name,
     required String role,
+    required String organizationCode,
+    String? contact,
+  });
+
+  /// Create the first organization and immediately activate its admin.
+  Future<AuthUser> bootstrapOrganization({
+    required AuthUser user,
+    required String organizationName,
+    required String adminName,
     String? contact,
   });
 
@@ -34,6 +43,12 @@ abstract class AuthRepository {
 
   /// Get current access token
   Future<String?> getAccessToken();
+
+  /// Get the current refresh token.
+  Future<String?> getRefreshToken();
+
+  /// Persist a rotated access/refresh token pair.
+  Future<void> updateTokens(String accessToken, String refreshToken);
 
   /// Check if user is authenticated
   Future<bool> isAuthenticated();

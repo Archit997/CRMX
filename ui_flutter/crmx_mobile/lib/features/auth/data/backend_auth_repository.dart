@@ -4,16 +4,21 @@ import 'package:http/http.dart' as http;
 import '../../../core/cache/cache_service.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/errors/app_exception.dart';
+import '../../../services/storage/secure_storage_service.dart';
 import '../domain/auth_state.dart';
 import '../domain/auth_user.dart';
 import 'auth_repository.dart';
 
 class BackendAuthRepository implements AuthRepository {
-  BackendAuthRepository(this._cacheService) {
+  BackendAuthRepository(
+    this._cacheService, {
+    SecureStorageService? secureStorage,
+  }) : _secureStorage = secureStorage ?? SecureStorageService() {
     _authStateController = StreamController<AuthState>.broadcast();
   }
 
   final CacheService _cacheService;
+  final SecureStorageService _secureStorage;
   late final StreamController<AuthState> _authStateController;
 
   String get _backendBaseUrl => AppConfig.backendBaseUrl;
@@ -21,11 +26,13 @@ class BackendAuthRepository implements AuthRepository {
   @override
   Future<void> sendOtp(String phoneNumber) async {
     try {
-      final response = await http.post(
-        Uri.parse('$_backendBaseUrl/api/auth/send-otp'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'phone': phoneNumber}),
-      );
+      final response = await http
+          .post(
+            Uri.parse('$_backendBaseUrl/api/auth/send-otp'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'phone': phoneNumber}),
+          )
+          .timeout(AppConfig.apiTimeout);
 
       if (response.statusCode != 200) {
         final error = jsonDecode(response.body);
@@ -48,14 +55,16 @@ class BackendAuthRepository implements AuthRepository {
       // even if user was previously in "pending" state and admin just approved them
       _cacheService.invalidateCurrentUserData();
 
-      final response = await http.post(
-        Uri.parse('$_backendBaseUrl/api/auth/verify-otp'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'phone': phoneNumber,
-          'otp': otp,
-        }),
-      );
+      final response = await http
+          .post(
+            Uri.parse('$_backendBaseUrl/api/auth/verify-otp'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'phone': phoneNumber,
+              'otp': otp,
+            }),
+          )
+          .timeout(AppConfig.apiTimeout);
 
       if (response.statusCode != 200) {
         final error = jsonDecode(response.body);
@@ -83,8 +92,9 @@ class BackendAuthRepository implements AuthRepository {
         final supabaseToken = data['supabase_token'] as String?;
         if (supabaseToken != null) {
           _cacheService.cacheAuthToken(supabaseToken);
+          await _secureStorage.saveAccessToken(supabaseToken);
         }
-        
+
         throw SignupRequiredException(
           userId: data['supabase_user_id'],
           phone: data['phone'],
@@ -96,8 +106,16 @@ class BackendAuthRepository implements AuthRepository {
       final refreshToken = data['refresh_token'] as String?;
 
       _cacheService.cacheAuthToken(token);
+      await _secureStorage.saveAccessToken(token);
       if (refreshToken != null) {
         _cacheService.cacheRefreshToken(refreshToken);
+        await _secureStorage.saveRefreshToken(refreshToken);
+      }
+
+      final embeddedUser = data['user'];
+      if (embeddedUser is Map<String, dynamic>) {
+        _cacheService.cacheCurrentUserData(embeddedUser);
+        return _userFromJson(embeddedUser);
       }
 
       // Now fetch FRESH user data from /api/auth/user/me
@@ -108,10 +126,10 @@ class BackendAuthRepository implements AuthRepository {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(AppConfig.apiTimeout);
 
       if (userResponse.statusCode != 200) {
-        throw AuthException('Failed to fetch user data');
+        throw const AuthException('Failed to fetch user data');
       }
 
       final userData = jsonDecode(userResponse.body) as Map<String, dynamic>;
@@ -120,16 +138,7 @@ class BackendAuthRepository implements AuthRepository {
       _cacheService.cacheCurrentUserData(userData);
 
       // Convert to AuthUser
-      return AuthUser(
-        id: userData['id'] as String,
-        phone: userData['phone'] as String,
-        email: userData['email'] as String?,
-        name: userData['name'] as String?,
-        role: userData['role'] as String?,
-        contact: userData['contact'] as String?,
-        approvalStatus: userData['approval_status'] as String?,
-        isActive: userData['is_active'] == true,
-      );
+      return _userFromJson(userData);
     } catch (e) {
       if (e is AuthException ||
           e is SignupRequiredException ||
@@ -142,39 +151,43 @@ class BackendAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<AuthUser?> getAppProfile(AuthUser user, {bool forceRefresh = false}) async {
+  Future<AuthUser?> getAppProfile(AuthUser user,
+      {bool forceRefresh = false}) async {
     // If forceRefresh is true, skip cache and fetch fresh data
     if (!forceRefresh) {
       // Check cache first
       final cachedData = _cacheService.getCachedCurrentUserData();
       if (cachedData != null) {
-        return AuthUser(
-          id: cachedData['id'] as String,
-          phone: cachedData['phone'] as String,
-          email: cachedData['email'] as String?,
-          name: cachedData['name'] as String?,
-          role: cachedData['role'] as String?,
-          contact: cachedData['contact'] as String?,
-          approvalStatus: cachedData['approval_status'] as String?,
-          isActive: cachedData['is_active'] == true,
-        );
+        return _userFromJson(cachedData);
       }
     }
 
     // If not in cache OR forceRefresh=true, fetch from backend
     try {
-      final token = _cacheService.getCachedAuthToken();
+      final token = await _getAccessToken();
       if (token == null) {
         return null;
       }
 
-      final response = await http.get(
-        Uri.parse('$_backendBaseUrl/api/auth/user/me'),
+      var response = await http.get(
+        Uri.parse('$_backendBaseUrl/api/auth/user/status'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
-      );
+      ).timeout(AppConfig.apiTimeout);
+      if (response.statusCode == 401) {
+        await refreshSession();
+        final refreshedToken = await _getAccessToken();
+        if (refreshedToken == null) return null;
+        response = await http.get(
+          Uri.parse('$_backendBaseUrl/api/auth/user/status'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $refreshedToken',
+          },
+        ).timeout(AppConfig.apiTimeout);
+      }
 
       if (response.statusCode != 200) {
         return null;
@@ -185,16 +198,8 @@ class BackendAuthRepository implements AuthRepository {
       // Cache the fresh data
       _cacheService.cacheCurrentUserData(userData);
 
-      return AuthUser(
-        id: userData['id'] as String,
-        phone: userData['phone'] as String,
-        email: userData['email'] as String?,
-        name: userData['name'] as String?,
-        role: userData['role'] as String?,
-        contact: userData['contact'] as String?,
-        approvalStatus: userData['approval_status'] as String?,
-        isActive: userData['is_active'] == true,
-      );
+      if (userData['exists'] != true) return null;
+      return _userFromJson(userData);
     } catch (e) {
       return null;
     }
@@ -205,28 +210,30 @@ class BackendAuthRepository implements AuthRepository {
     required AuthUser user,
     required String name,
     required String role,
+    required String organizationCode,
     String? contact,
   }) async {
     try {
-      final token = _cacheService.getCachedAuthToken();
+      final token = await _getAccessToken();
       if (token == null) {
-        throw AuthException('No authentication token');
+        throw const AuthException('No authentication token');
       }
 
-      final response = await http.post(
-        Uri.parse('$_backendBaseUrl/auth/signup-request'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'user_id': user.id,
-          'name': name,
-          'phone': user.phone,
-          'role': role,
-          'contact': contact,
-        }),
-      );
+      final response = await http
+          .post(
+            Uri.parse('$_backendBaseUrl/api/auth/signup-request'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'name': name,
+              'role': role,
+              'organization_code': organizationCode,
+              'contact': contact,
+            }),
+          )
+          .timeout(AppConfig.apiTimeout);
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw AuthException('Signup request failed: ${response.body}');
@@ -234,19 +241,54 @@ class BackendAuthRepository implements AuthRepository {
 
       final userData = jsonDecode(response.body) as Map<String, dynamic>;
 
-      return AuthUser(
-        id: userData['id'] as String,
-        phone: userData['phone'] as String,
-        email: userData['email'] as String?,
-        name: userData['name'] as String?,
-        role: userData['role'] as String?,
-        contact: userData['contact'] as String?,
-        approvalStatus: userData['approval_status'] as String?,
-        isActive: userData['is_active'] == true,
-      );
+      return _userFromJson(userData);
     } catch (e) {
       if (e is AuthException) rethrow;
       throw AuthException('Failed to request signup: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<AuthUser> bootstrapOrganization({
+    required AuthUser user,
+    required String organizationName,
+    required String adminName,
+    String? contact,
+  }) async {
+    final token = await _getAccessToken();
+    if (token == null) {
+      throw const AuthException('No authentication token');
+    }
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_backendBaseUrl/api/organizations/bootstrap'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'organization_name': organizationName,
+              'admin_name': adminName,
+              'contact': contact,
+            }),
+          )
+          .timeout(AppConfig.apiTimeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final error = jsonDecode(response.body);
+        throw AuthException(
+          error is Map
+              ? error['detail']?.toString() ?? 'Organization setup failed'
+              : 'Organization setup failed',
+        );
+      }
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final admin = _userFromJson(data['user'] as Map<String, dynamic>);
+      _cacheService.cacheCurrentUserData(admin.toMap());
+      return admin;
+    } catch (e) {
+      if (e is AuthException) rethrow;
+      throw AuthException('Organization setup failed: ${e.toString()}');
     }
   }
 
@@ -258,6 +300,7 @@ class BackendAuthRepository implements AuthRepository {
       _cacheService.invalidateRefreshToken();
       _cacheService.invalidateCurrentUserData();
       _cacheService.clearAll();
+      await _secureStorage.clearAll();
 
       // Emit unauthenticated state
       _authStateController.add(const Unauthenticated());
@@ -268,35 +311,75 @@ class BackendAuthRepository implements AuthRepository {
 
   @override
   Future<AuthUser?> getCurrentUser() async {
-    final token = _cacheService.getCachedAuthToken();
+    final token = await _getAccessToken();
     if (token == null) return null;
 
     // Try to get from cache first
     final cachedData = _cacheService.getCachedCurrentUserData();
     if (cachedData != null) {
-      return AuthUser(
-        id: cachedData['id'] as String,
-        phone: cachedData['phone'] as String,
-        email: cachedData['email'] as String?,
-        name: cachedData['name'] as String?,
-        role: cachedData['role'] as String?,
-        contact: cachedData['contact'] as String?,
-        approvalStatus: cachedData['approval_status'] as String?,
-        isActive: cachedData['is_active'] == true,
-      );
+      return _userFromJson(cachedData);
     }
 
-    return null;
+    try {
+      var response = await http.get(
+        Uri.parse('$_backendBaseUrl/api/auth/user/status'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(AppConfig.apiTimeout);
+      if (response.statusCode == 401) {
+        await refreshSession();
+        final refreshedToken = await _getAccessToken();
+        if (refreshedToken == null) return null;
+        response = await http.get(
+          Uri.parse('$_backendBaseUrl/api/auth/user/status'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $refreshedToken',
+          },
+        ).timeout(AppConfig.apiTimeout);
+      }
+      if (response.statusCode != 200) return null;
+      final userData = jsonDecode(response.body) as Map<String, dynamic>;
+      if (userData['exists'] != true) return null;
+      _cacheService.cacheCurrentUserData(userData);
+      return _userFromJson(userData);
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
   Future<String?> getAccessToken() async {
-    return _cacheService.getCachedAuthToken();
+    return _getAccessToken();
+  }
+
+  @override
+  Future<String?> getRefreshToken() async {
+    var token = _cacheService.getCachedRefreshToken();
+    token ??= await _secureStorage.getRefreshToken();
+    if (token != null && token.isNotEmpty) {
+      _cacheService.cacheRefreshToken(token);
+      return token;
+    }
+    return null;
+  }
+
+  @override
+  Future<void> updateTokens(
+    String accessToken,
+    String refreshToken,
+  ) async {
+    _cacheService.cacheAuthToken(accessToken);
+    _cacheService.cacheRefreshToken(refreshToken);
+    await _secureStorage.saveAccessToken(accessToken);
+    await _secureStorage.saveRefreshToken(refreshToken);
   }
 
   @override
   Future<bool> isAuthenticated() async {
-    final token = _cacheService.getCachedAuthToken();
+    final token = await _getAccessToken();
     return token != null;
   }
 
@@ -307,17 +390,23 @@ class BackendAuthRepository implements AuthRepository {
 
   @override
   Future<void> refreshSession() async {
-    final refreshToken = _cacheService.getCachedRefreshToken();
+    var refreshToken = _cacheService.getCachedRefreshToken();
+    refreshToken ??= await _secureStorage.getRefreshToken();
+    if (refreshToken != null) {
+      _cacheService.cacheRefreshToken(refreshToken);
+    }
     if (refreshToken == null) {
       throw const AuthException('No refresh token available');
     }
 
     try {
-      final response = await http.post(
-        Uri.parse('$_backendBaseUrl/api/auth/refresh'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'refresh_token': refreshToken}),
-      );
+      final response = await http
+          .post(
+            Uri.parse('$_backendBaseUrl/api/auth/refresh'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'refresh_token': refreshToken}),
+          )
+          .timeout(AppConfig.apiTimeout);
 
       if (response.statusCode != 200) {
         throw const AuthException('Token refresh failed');
@@ -331,17 +420,52 @@ class BackendAuthRepository implements AuthRepository {
 
       _cacheService.cacheAuthToken(newToken);
       _cacheService.cacheRefreshToken(newRefreshToken);
+      await _secureStorage.saveAccessToken(newToken);
+      await _secureStorage.saveRefreshToken(newRefreshToken);
     } catch (e) {
       // Clear invalid tokens
       _cacheService.invalidateAuthToken();
       _cacheService.invalidateRefreshToken();
+      await _secureStorage.clearAll();
       throw AuthException('Failed to refresh session: ${e.toString()}');
     }
+  }
+
+  Future<String?> _getAccessToken() async {
+    var token = _cacheService.getCachedAuthToken();
+    token ??= await _secureStorage.getAccessToken();
+    if (token != null && token.isNotEmpty) {
+      _cacheService.cacheAuthToken(token);
+      final refreshToken = await _secureStorage.getRefreshToken();
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        _cacheService.cacheRefreshToken(refreshToken);
+      }
+      return token;
+    }
+    return null;
   }
 
   void dispose() {
     _authStateController.close();
   }
+}
+
+AuthUser _userFromJson(Map<String, dynamic> data) {
+  return AuthUser(
+    id: data['id'] as String,
+    phone: data['phone'] as String,
+    email: data['email'] as String?,
+    name: data['name'] as String?,
+    role: data['role'] as String?,
+    contact: data['contact'] as String?,
+    approvalStatus: data['approval_status'] as String?,
+    isActive: data['is_active'] == true,
+    organizationId: data['organization_id'] as String?,
+    organizationName: data['organization_name'] as String?,
+    createdAt: data['created_at'] == null
+        ? null
+        : DateTime.tryParse(data['created_at'].toString()),
+  );
 }
 
 /// Exception thrown when user needs to complete signup

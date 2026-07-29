@@ -18,6 +18,7 @@ set role = case
     when role = 'manager' then 'MANAGER'
     when role = 'sales' then 'EMPLOYEE'
     when role = 'finance' then 'DEV'
+    when role in ('ADMIN', 'MANAGER', 'DEV', 'EMPLOYEE') then role
     else 'EMPLOYEE'  -- default fallback
 end;
 

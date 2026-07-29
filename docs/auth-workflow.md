@@ -1,114 +1,95 @@
-# Auth Workflow
+# Authentication and Organization Workflow
 
-## Current Flow
+## Sign in
 
-1. User enters mobile number in E.164 format, for example `+919876543210`.
-2. Flutter calls Supabase phone OTP auth.
-3. Twilio sends the OTP through Supabase Auth. For configured test numbers, use fixed OTP `123456`.
-4. After OTP verification, Flutter checks backend profile:
-   - `GET /auth/profile/{supabase_user_id}`
-5. If no CRMX profile exists, Flutter opens signup.
-6. Signup creates a pending user profile:
-   - `POST /auth/signup-request`
-7. A manager/admin approves or rejects pending users:
-   - `GET /users/pending`
-   - `PATCH /users/{user_id}/verification`
-8. Only approved and active users enter the client management app.
+1. Flutter sends an E.164 phone number to `POST /api/auth/send-otp`.
+2. The backend asks Supabase Auth to send the OTP through Twilio Verify.
+3. Flutter submits the code to `POST /api/auth/verify-otp`.
+4. Supabase verifies the OTP and returns a signed access token and rotating
+   refresh token.
+5. The backend reads the Supabase user ID and phone from that verified identity.
+   It never accepts either value from signup or organization request JSON.
 
-## Supabase Requirements
+Fixed OTPs belong only in Supabase's **Test Phone Numbers and OTPs** setting.
+They must expire before a production release.
 
-In Supabase Auth:
+## First Company Admin
 
-- Enable phone auth.
-- Configure Twilio SMS provider.
-- Add test phone numbers if using fixed OTP `123456`.
-- Ensure the app uses the correct `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
-
-Flutter env file:
-
-```bash
-cd ui_flutter/crmx_mobile
-cp .env.sample .env
-```
-
-Required values:
-
-```text
-SUPABASE_URL=...
-SUPABASE_ANON_KEY=...
-BACKEND_API_BASE=http://127.0.0.1:8000
-APP_ENV=development
-```
-
-Backend env file:
-
-```text
-SUPABASE_DB_HOST=db.<project-ref>.supabase.co
-SUPABASE_DB_PASSWORD=...
-SUPABASE_JWT_SECRET=...
-```
-
-`SUPABASE_JWT_SECRET` is optional for local development but should be set outside development so backend auth/profile endpoints can verify that the Supabase bearer token subject matches the requested user ID.
-
-## Database Migration
-
-Run migrations in order:
-
-1. `db/postgres/001_init_crmx_tables.sql`
-2. `db/postgres/002_add_users_table.sql`
-
-The users table is intentionally linked to Supabase Auth:
-
-```sql
-id uuid primary key references auth.users(id) on delete cascade
-```
-
-This means `public.users.id` must be the same ID as `auth.users.id`.
-
-## User Table Fields
-
-`public.users` includes:
-
-- `id`
-- `name`
-- `role`
-- `phone`
-- `contact`
-- `approval_status`
-- `is_active`
-- `verified_by`
-- `verified_at`
-- `rejection_reason`
-- `created_at`
-- `updated_at`
-
-Allowed roles:
-
-- `sales`
-- `manager`
-- `finance`
-- `admin`
-
-Allowed approval statuses:
-
-- `pending`
-- `approved`
-- `rejected`
-
-## Backend Endpoints
+After the first OTP verification, a user without a CRMX profile can select
+**Set up company**. Flutter sends:
 
 ```http
-GET /auth/profile/{user_id}
-POST /auth/signup-request
-GET /users/pending
-PATCH /users/{user_id}/verification
-GET /users
-GET /users/{user_id}
-POST /users
-PATCH /users/{user_id}
-DELETE /users/{user_id}
+POST /api/organizations/bootstrap
+Authorization: Bearer <supabase-access-token>
 ```
 
-## Security Note
+The backend atomically creates:
 
-The backend verifies `/auth/profile` and `/auth/signup-request` bearer tokens when `SUPABASE_JWT_SECRET` is configured. Without that variable, these endpoints run in local-development mode and trust the supplied Supabase user ID.
+- the organization;
+- its first approved `ADMIN` profile;
+- a long, random company join code;
+- an audit event.
+
+The admin can see the code in the admin workspace and rotate it with
+`POST /api/organizations/join-code/rotate`.
+
+## Employee Signup
+
+An employee verifies their phone, selects **Join company**, and submits their
+name, requested role, contact note, and company code:
+
+```http
+POST /api/auth/signup-request
+Authorization: Bearer <supabase-access-token>
+```
+
+The profile is created as `pending` and inactive inside the matching
+organization. An admin reviews it using:
+
+```http
+GET /users/pending
+PATCH /users/{user_id}/verification
+```
+
+Only an approved, active profile in an active organization can use protected
+CRM endpoints. Rejected and archived profiles cannot silently sign up again.
+
+## Session Handling
+
+- Native Flutter builds store access and refresh tokens through
+  `flutter_secure_storage`.
+- On an API `401`, one shared refresh operation rotates the session and retries
+  concurrent requests once.
+- A refresh also rechecks the application profile, approval, active state, and
+  organization state.
+- Signing out clears both in-memory and secure token storage.
+
+## Supabase Configuration
+
+Required:
+
+- Phone provider enabled.
+- Twilio Verify configured for SMS.
+- Test phone/OTP pairs removed or expired for production.
+- Backend receives `SUPABASE_URL` and the service-role key.
+- Flutter receives only `SUPABASE_URL` and the publishable/anon key.
+
+The backend validates every access token against Supabase JWKS and verifies its
+signature algorithm, issuer, audience, and expiry. There is no mode that trusts
+a client-supplied user ID.
+
+## Database
+
+Run the ordered, checksummed migrations:
+
+```bash
+.venv/bin/python scripts/apply_migrations.py --dry-run
+.venv/bin/python scripts/apply_migrations.py
+```
+
+`public.users.id` matches `auth.users.id`. Application tables have RLS enabled
+without anon/authenticated PostgREST policies; Flutter uses Supabase directly
+only for Auth, while business data goes through FastAPI.
+
+See [organization admin setup](organization-admin-setup.md) and
+[production readiness](production-readiness.md) for rollout controls.

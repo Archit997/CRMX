@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from services.mongo.mongo_service import MongoService
 from utils.constants import LOG_LEVEL_ERROR
-from utils.logger import AppLogger
+from utils.logging import AppLogger
 
 logger = AppLogger.get_logger(__name__)
 

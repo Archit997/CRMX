@@ -7,6 +7,7 @@ import '../../features/clients/data/client_repository.dart';
 import '../../features/clients/presentation/client_controller.dart';
 import '../models/crmx_models.dart';
 import '../theme/app_theme.dart';
+import '../../core/logging/app_logger.dart';
 
 class ClientDetailScreen extends ConsumerStatefulWidget {
   const ClientDetailScreen({
@@ -21,8 +22,7 @@ class ClientDetailScreen extends ConsumerStatefulWidget {
   final ClientRepository repository;
 
   @override
-  ConsumerState<ClientDetailScreen> createState() =>
-      _ClientDetailScreenState();
+  ConsumerState<ClientDetailScreen> createState() => _ClientDetailScreenState();
 }
 
 class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
@@ -40,7 +40,7 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
   late TextEditingController _cityController;
   late TextEditingController _requirementController;
   late String _selectedPriority;
-  
+
   // For assignable users dropdown
   String? _selectedAssignedTo;
   List<AssignableUser> _assignableUsers = [];
@@ -261,7 +261,10 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
         updates['current_status_no'] = _currentStatusNo;
       }
 
-      print('📝 Updating client with payload: $updates');
+      AppLogger.debug(
+        'update_client_submitted client_id=${widget.client.clientId}',
+        name: 'crmx.clients',
+      );
       await widget.repository.patchClient(updates);
 
       setState(() {
@@ -278,7 +281,11 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
         );
       }
     } catch (e) {
-      print('❌ Error updating client: $e');
+      AppLogger.error(
+        'update_client_failed client_id=${widget.client.clientId}',
+        name: 'crmx.clients',
+        error: e,
+      );
       setState(() => _isSaving = false);
 
       if (mounted) {
@@ -369,15 +376,15 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
         onPressed: _showDeleteConfirmation,
         icon: const Icon(Icons.delete_outline, color: AppTheme.red),
         label: const Text(
-          'Delete Client',
+          'Archive Client',
           style: TextStyle(
             color: AppTheme.red,
             fontWeight: FontWeight.w600,
           ),
         ),
         style: OutlinedButton.styleFrom(
-          backgroundColor: AppTheme.red.withOpacity(0.08),
-          side: BorderSide(color: AppTheme.red.withOpacity(0.3)),
+          backgroundColor: AppTheme.red.withValues(alpha: 0.08),
+          side: BorderSide(color: AppTheme.red.withValues(alpha: 0.3)),
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -397,7 +404,7 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
           children: [
             Icon(Icons.warning_amber_rounded, color: AppTheme.red, size: 28),
             SizedBox(width: 12),
-            Text('Delete Client'),
+            Text('Archive Client'),
           ],
         ),
         content: Column(
@@ -405,7 +412,7 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Are you sure you want to delete this client?',
+              'Archive this client? Its activity history will be retained.',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -456,8 +463,8 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
                 );
               }
             },
-            icon: const Icon(Icons.delete_forever),
-            label: const Text('Delete'),
+            icon: const Icon(Icons.archive_outlined),
+            label: const Text('Archive'),
             style: FilledButton.styleFrom(
               backgroundColor: AppTheme.red,
             ),
@@ -478,7 +485,10 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
     );
 
     try {
-      print('🗑️ Deleting client ${widget.client.clientId}');
+      AppLogger.debug(
+        'delete_client_submitted client_id=${widget.client.clientId}',
+        name: 'crmx.clients',
+      );
       await widget.repository.deleteClient(widget.client.clientId);
 
       if (!mounted) return;
@@ -490,7 +500,7 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              '✅ Client "${widget.client.clientName}" deleted successfully'),
+              'Client "${widget.client.clientName}" archived successfully'),
           backgroundColor: AppTheme.green,
           duration: const Duration(seconds: 2),
         ),
@@ -499,7 +509,11 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
       // Return to client list with refresh flag
       Navigator.pop(context, true);
     } catch (e) {
-      print('❌ Error deleting client: $e');
+      AppLogger.error(
+        'delete_client_failed client_id=${widget.client.clientId}',
+        name: 'crmx.clients',
+        error: e,
+      );
 
       if (!mounted) return;
 
@@ -509,7 +523,7 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
       // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(ErrorHandler.getOperationError('delete', e)),
+          content: Text(ErrorHandler.getOperationError('archive', e)),
           backgroundColor: AppTheme.red,
           duration: const Duration(seconds: 4),
         ),
@@ -577,12 +591,12 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
   Widget _buildPriorityBadge() {
     if (_isEditMode) {
       return DropdownButtonFormField<String>(
-        value: _selectedPriority,
+        initialValue: _selectedPriority,
         decoration: InputDecoration(
           labelText: 'Priority',
           prefixIcon: const Icon(Icons.flag),
           filled: true,
-          fillColor: _priorityColor(_selectedPriority).withOpacity(0.1),
+          fillColor: _priorityColor(_selectedPriority).withValues(alpha: 0.1),
         ),
         items: const [
           DropdownMenuItem(value: 'Hot', child: Text('🔴 Hot')),
@@ -600,7 +614,7 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: _priorityColor(widget.client.priority).withOpacity(0.15),
+        color: _priorityColor(widget.client.priority).withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
@@ -713,10 +727,10 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<int>(
-              value: _currentStatusNo,
+              initialValue: _currentStatusNo,
               decoration: InputDecoration(
                 filled: true,
-                fillColor: AppTheme.green.withOpacity(0.1),
+                fillColor: AppTheme.green.withValues(alpha: 0.1),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -794,7 +808,7 @@ class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _selectedAssignedTo,
+                initialValue: _selectedAssignedTo,
                 decoration: const InputDecoration(
                   labelText: 'Assigned To *',
                   prefixIcon: Icon(Icons.person_outline),

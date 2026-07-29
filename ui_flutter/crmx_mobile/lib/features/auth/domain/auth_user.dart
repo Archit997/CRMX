@@ -9,6 +9,8 @@ class AuthUser {
     this.approvalStatus,
     this.isActive = false,
     this.createdAt,
+    this.organizationId,
+    this.organizationName,
   });
 
   final String id;
@@ -20,6 +22,8 @@ class AuthUser {
   final String? approvalStatus;
   final bool isActive;
   final DateTime? createdAt;
+  final String? organizationId;
+  final String? organizationName;
 
   AuthUser copyWith({
     String? phone,
@@ -30,6 +34,8 @@ class AuthUser {
     String? approvalStatus,
     bool? isActive,
     DateTime? createdAt,
+    String? organizationId,
+    String? organizationName,
   }) {
     return AuthUser(
       id: id,
@@ -41,6 +47,8 @@ class AuthUser {
       approvalStatus: approvalStatus ?? this.approvalStatus,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
+      organizationId: organizationId ?? this.organizationId,
+      organizationName: organizationName ?? this.organizationName,
     );
   }
 
@@ -55,6 +63,8 @@ class AuthUser {
       'approval_status': approvalStatus,
       'is_active': isActive,
       'created_at': createdAt?.toIso8601String(),
+      'organization_id': organizationId,
+      'organization_name': organizationName,
     };
   }
 

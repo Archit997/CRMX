@@ -7,7 +7,7 @@ from services.postgres.exceptions import ConflictError
 from services.postgres.dependencies import get_status_service
 from services.status.status_service import StatusCreateRequest, StatusService
 from utils.constants import LOG_LEVEL_ERROR
-from utils.logger import AppLogger
+from utils.logging import AppLogger
 
 logger = AppLogger.get_logger(__name__)
 

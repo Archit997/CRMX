@@ -1,4 +1,3 @@
-import '../../features/auth/domain/auth_user.dart';
 import '../../src/models/crmx_models.dart';
 import '../../services/api/api_client.dart';
 import 'cache_config.dart';

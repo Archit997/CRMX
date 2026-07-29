@@ -41,7 +41,13 @@ class _CRMXMobileAppState extends ConsumerState<CRMXMobileApp> {
   Widget _buildHome(AuthState authState) {
     return switch (authState) {
       Authenticated(:final user) => ClientListScreen(currentUser: user),
-      SignupRequired(:final user) => SignupScreen(user: user),
+      SignupRequired(:final user, :final error) =>
+        SignupScreen(user: user, initialError: error),
+      OrganizationSetupRequired(:final user, :final error) => SignupScreen(
+          user: user,
+          initialError: error,
+          createOnly: true,
+        ),
       ApprovalPending(:final user) =>
         ApprovalStatusScreen(user: user, rejected: false),
       ApprovalRejected(:final user) =>

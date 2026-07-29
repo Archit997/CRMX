@@ -98,7 +98,9 @@ class ClientInfo {
       assignedTo: json['assigned_to'] as String,
       assignedToName: (json['assigned_to_name'] ?? 'Unknown') as String,
       currentStatusNo: json['current_status_no'] as int,
-      statusName: (json['current_status_name'] ?? json['status_name'] ?? 'Unknown') as String,
+      statusName: (json['current_status_name'] ??
+          json['status_name'] ??
+          'Unknown') as String,
       requirementSummary: (json['requirement_summary'] ?? '') as String,
       priority: json['priority'] as String,
       dealValue: (json['deal_value'] ?? 0) as int,

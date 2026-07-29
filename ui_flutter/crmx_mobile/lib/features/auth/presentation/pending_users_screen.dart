@@ -100,7 +100,8 @@ class _PendingUsersScreenState extends State<PendingUsersScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Could not update ${user.name}: ${ErrorHandler.getUserFriendlyMessage(error)}'),
+          content: Text(
+              'Could not update ${user.name}: ${ErrorHandler.getUserFriendlyMessage(error)}'),
           backgroundColor: AppTheme.red,
         ),
       );

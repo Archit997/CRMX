@@ -10,6 +10,8 @@ final cacheServiceProvider = Provider<CacheService>((ref) {
   final authRepo = ref.read(authRepositoryProvider);
   final apiClient = ApiClient(
     tokenProvider: () => authRepo.getAccessToken(),
+    refreshTokenProvider: () => authRepo.getRefreshToken(),
+    tokenUpdater: authRepo.updateTokens,
   );
   return CacheService(apiClient);
 });
@@ -18,6 +20,8 @@ final clientRepositoryProvider = Provider<ClientRepository>((ref) {
   final authRepo = ref.read(authRepositoryProvider);
   final apiClient = ApiClient(
     tokenProvider: () => authRepo.getAccessToken(),
+    refreshTokenProvider: () => authRepo.getRefreshToken(),
+    tokenUpdater: authRepo.updateTokens,
   );
   final cacheService = ref.read(cacheServiceProvider);
   return ClientRepository(apiClient, cacheService);

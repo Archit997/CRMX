@@ -1,4 +1,5 @@
 import 'cache_config.dart';
+import '../logging/app_logger.dart';
 import 'cached_data.dart';
 
 /// In-memory cache manager with TTL support
@@ -112,7 +113,7 @@ class CacheManager {
   // Debug logging
   void _log(String message) {
     if (CacheConfig.enableCacheLogging) {
-      print('[CacheManager] $message');
+      AppLogger.debug(message, name: 'crmx.cache');
     }
   }
 }

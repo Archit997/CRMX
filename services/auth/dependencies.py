@@ -31,14 +31,20 @@ Usage Examples:
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
 
 import jwt
-import requests
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
+from jwt import PyJWKClient
+from jwt.exceptions import (
+    ExpiredSignatureError,
+    InvalidTokenError,
+    PyJWKClientError,
+)
+from starlette.concurrency import run_in_threadpool
 
 from services.postgres.dependencies import get_user_service
 from services.user.constants import USER_ROLE_ADMIN, USER_ROLE_DEV, USER_ROLE_MANAGER
@@ -54,6 +60,19 @@ security = HTTPBearer(
     scheme_name="Bearer",
     description="Enter your JWT token",
 )
+
+ALLOWED_JWT_ALGORITHMS = {"ES256", "RS256"}
+
+
+@lru_cache(maxsize=4)
+def _get_jwk_client(jwks_url: str) -> PyJWKClient:
+    return PyJWKClient(
+        jwks_url,
+        cache_keys=True,
+        cache_jwk_set=True,
+        lifespan=300,
+        timeout=5,
+    )
 
 
 # ============================================================================
@@ -81,7 +100,7 @@ def decode_jwt_token(token: str) -> dict:
         HTTPException(401): Token expired, invalid signature, or malformed
         HTTPException(500): Missing Supabase URL configuration
     """
-    supabase_url = EnvVars.get("SUPABASE_URL")
+    supabase_url = (EnvVars.get("SUPABASE_URL") or "").rstrip("/")
     
     if not supabase_url:
         raise HTTPException(
@@ -90,57 +109,24 @@ def decode_jwt_token(token: str) -> dict:
         )
     
     try:
-        # Get token header to find the key ID and algorithm
         header = jwt.get_unverified_header(token)
         algorithm = header.get("alg")
-        kid = header.get("kid")
-        
-        # Fetch JWKS from Supabase
-        jwks_url = f"{supabase_url}/auth/v1/.well-known/jwks.json"
-        response = requests.get(
-            jwks_url,
-            headers={
-                "User-Agent": "Python/FastAPI",
-                "Accept": "application/json"
-            }
-        )
-        
-        if response.status_code != 200:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to fetch JWKS from Supabase",
-            )
-        
-        jwks_data = response.json()
-        
-        # Find matching key by kid
-        matching_key = None
-        for key_data in jwks_data.get("keys", []):
-            if key_data.get("kid") == kid or not kid:
-                matching_key = key_data
-                break
-        
-        if not matching_key:
+
+        if algorithm not in ALLOWED_JWT_ALGORITHMS:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="No matching signing key found",
+                detail="Unsupported token signing algorithm",
             )
         
-        # Convert JWK to public key
-        from jwt import PyJWK
-        jwk = PyJWK(matching_key)
-        public_key = jwk.key
-        
-        # Verify token signature and decode
+        jwks_url = f"{supabase_url}/auth/v1/.well-known/jwks.json"
+        signing_key = _get_jwk_client(jwks_url).get_signing_key_from_jwt(token)
+
         payload = jwt.decode(
             token,
-            public_key,
-            algorithms=[algorithm],
-            options={
-                "verify_signature": True,
-                "verify_exp": True,
-                "verify_aud": False,
-            },
+            signing_key.key,
+            algorithms=list(ALLOWED_JWT_ALGORITHMS),
+            audience=EnvVars.get("SUPABASE_JWT_AUDIENCE", "authenticated"),
+            issuer=f"{supabase_url}/auth/v1",
         )
         
         return payload
@@ -154,7 +140,12 @@ def decode_jwt_token(token: str) -> dict:
     except InvalidTokenError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid token: {str(e)}",
+            detail="Invalid authentication token",
+        ) from e
+    except PyJWKClientError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication key service is unavailable",
         ) from e
     
     except HTTPException:
@@ -200,7 +191,7 @@ async def get_current_user(
     token = credentials.credentials
     
     # Step 2: Validate JWT and decode payload
-    payload = decode_jwt_token(token)
+    payload = await run_in_threadpool(decode_jwt_token, token)
     
     # Step 3: Extract user ID from token
     user_id_str = payload.get("sub")
@@ -239,6 +230,14 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is inactive",
+        )
+
+    if user.get("organization_id") and not user.get(
+        "organization_is_active", False
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Organization is inactive",
         )
     
     return user
@@ -432,7 +431,7 @@ async def get_authenticated_user_for_signup(
         HTTPException(401): Invalid, expired, or missing token
     """
     token = credentials.credentials
-    payload = decode_jwt_token(token)
+    payload = await run_in_threadpool(decode_jwt_token, token)
 
     user_id_str = payload.get("sub")
     if not user_id_str:
@@ -453,4 +452,3 @@ async def get_authenticated_user_for_signup(
         "id": user_id_str,
         "phone": payload.get("phone"),
     }
-

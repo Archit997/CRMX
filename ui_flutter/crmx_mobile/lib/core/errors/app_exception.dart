@@ -11,8 +11,7 @@ abstract class AppException implements Exception {
 
 /// Network-related exceptions
 class NetworkException extends AppException {
-  const NetworkException([String message = 'Network error occurred'])
-      : super(message);
+  const NetworkException([super.message = 'Network error occurred']);
 }
 
 /// Authentication exceptions
@@ -33,20 +32,20 @@ class ApiException extends AppException {
 
 /// Unauthorized exception (401)
 class UnauthorizedException extends ApiException {
-  const UnauthorizedException([String message = 'Unauthorized'])
-      : super(message, statusCode: 401);
+  const UnauthorizedException([super.message = 'Unauthorized'])
+      : super(statusCode: 401);
 }
 
 /// Not found exception (404)
 class NotFoundException extends ApiException {
-  const NotFoundException([String message = 'Resource not found'])
-      : super(message, statusCode: 404);
+  const NotFoundException([super.message = 'Resource not found'])
+      : super(statusCode: 404);
 }
 
 /// Server exception (500+)
 class ServerException extends ApiException {
-  const ServerException([String message = 'Server error'])
-      : super(message, statusCode: 500);
+  const ServerException([super.message = 'Server error'])
+      : super(statusCode: 500);
 }
 
 /// Validation exception

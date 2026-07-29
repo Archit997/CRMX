@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from services.auth.auth_service import AuthService
-from services.auth.dependencies import get_current_user
-from services.postgres.dependencies import get_auth_service
+from services.auth.dependencies import (
+    get_authenticated_user_for_signup,
+    get_current_user,
+)
+from services.postgres.dependencies import get_auth_service, get_user_service
+from services.user.user_service import UserService
 from utils.constants import LOG_LEVEL_ERROR
-from utils.logger import AppLogger
+from utils.logging import AppLogger
 
 logger = AppLogger.get_logger(__name__)
 
@@ -20,7 +25,11 @@ logger = AppLogger.get_logger(__name__)
 
 
 class SendOtpRequest(BaseModel):
-    phone: str = Field(..., example="+919876543210", description="Phone number in E.164 format")
+    phone: str = Field(
+        ...,
+        json_schema_extra={"example": "+919876543210"},
+        description="Phone number in E.164 format",
+    )
 
 
 class SendOtpResponse(BaseModel):
@@ -30,8 +39,18 @@ class SendOtpResponse(BaseModel):
 
 
 class VerifyOtpRequest(BaseModel):
-    phone: str = Field(..., example="+919876543210", description="Phone number in E.164 format")
-    otp: str = Field(..., example="123456", min_length=6, max_length=6, description="6-digit OTP code")
+    phone: str = Field(
+        ...,
+        json_schema_extra={"example": "+919876543210"},
+        description="Phone number in E.164 format",
+    )
+    otp: str = Field(
+        ...,
+        json_schema_extra={"example": "123456"},
+        min_length=6,
+        max_length=6,
+        description="6-digit OTP code",
+    )
 
 
 class VerifyOtpResponse(BaseModel):
@@ -44,6 +63,8 @@ class VerifyOtpResponse(BaseModel):
     phone: str | None = None
     supabase_token: str | None = None
     message: str | None = None
+    account_status: str | None = None
+    user: dict | None = None
 
 
 class RefreshTokenRequest(BaseModel):
@@ -119,16 +140,14 @@ class AuthController:
         3. Frontend calls this endpoint
         4. Backend verifies OTP with Supabase
         5. Backend checks approval status
-        6. Returns token only (no user data)
-        7. Frontend MUST call /api/user/me to get user data
+        6. Returns the session and current application profile state
 
         Response Cases:
-        - Success (approved user): {token, refresh_token, requires_signup: false}
-          → Frontend should call GET /api/user/me with token to get user data
+        - Existing profile: session tokens plus the current profile state
         - New User: {requires_signup: true, supabase_user_id, phone, supabase_token}
-          → Frontend should show signup form
-        - Pending Approval: 403 error "Account pending approval"
-        - Rejected: 403 error "Account rejected"
+          → Frontend should show company setup/join choices
+        - Pending or rejected profile: returned in `user`; protected CRM APIs
+          remain unavailable
         - Invalid OTP: 401 error "Invalid OTP"
         """
         try:
@@ -196,6 +215,19 @@ class AuthController:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token refresh failed",
             ) from exc
+
+    @staticmethod
+    @router.get("/user/status")
+    async def get_user_status(
+        authenticated_user: Annotated[
+            dict, Depends(get_authenticated_user_for_signup)
+        ],
+        user_service: Annotated[UserService, Depends(get_user_service)],
+    ) -> dict:
+        """Return fresh profile state for pending, rejected, or approved users."""
+        return user_service.get_user_profile(
+            UUID(authenticated_user["id"])
+        )
 
     @staticmethod
     @router.get("/user/me")

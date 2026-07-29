@@ -6,7 +6,7 @@ from services.auth.dependencies import require_developer
 from services.postgres.constants import POSTGRES_ROUTE_PREFIX, POSTGRES_ROUTE_TAG
 from services.postgres.postgres_service import PostgresService
 from utils.constants import LOG_LEVEL_ERROR
-from utils.logger import AppLogger
+from utils.logging import AppLogger
 
 logger = AppLogger.get_logger(__name__)
 

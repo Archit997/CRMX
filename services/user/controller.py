@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -14,13 +14,14 @@ from services.auth.dependencies import (
 from services.postgres.dependencies import get_user_service
 from services.user.user_service import (
     SignupRequest,
+    UserAccessUpdateRequest,
     UserCreateRequest,
     UserService,
     UserUpdateRequest,
     UserVerificationRequest,
 )
 from utils.constants import LOG_LEVEL_ERROR
-from utils.logger import AppLogger
+from utils.logging import AppLogger
 
 logger = AppLogger.get_logger(__name__)
 
@@ -29,7 +30,10 @@ class UserController:
     router = APIRouter(tags=["users"])
 
     @staticmethod
-    @router.post("/auth/signup-request", status_code=status.HTTP_201_CREATED)
+    @router.post(
+        "/api/auth/signup-request",
+        status_code=status.HTTP_201_CREATED,
+    )
     async def request_signup(
         payload: SignupRequest,
         request: Request,
@@ -47,18 +51,21 @@ class UserController:
         Special: This endpoint allows inactive/not-approved users to access it
         (since they're creating their initial signup request).
         
-        The user_id in the payload must match the authenticated user's ID.
+        User ID and phone are derived from the verified Supabase JWT.
         """
         try:
-            # Verify that the user_id in payload matches the authenticated user
-            auth_user_id = authenticated_user.get("id")
-            if str(payload.user_id) != auth_user_id:
+            phone = authenticated_user.get("phone")
+            if not phone:
                 raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="User ID mismatch: cannot create signup request for another user",
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authenticated phone number is missing",
                 )
-            
-            return user_service.request_signup(payload)
+
+            return user_service.request_signup(
+                payload,
+                user_id=UUID(authenticated_user["id"]),
+                phone=phone,
+            )
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
         except HTTPException:
@@ -75,16 +82,18 @@ class UserController:
     @router.get("/users/pending")
     async def list_pending_users(
         request: Request,
-        manager: Annotated[dict, Depends(require_manager_or_admin)],
+        admin: Annotated[dict, Depends(require_admin)],
         user_service: Annotated[UserService, Depends(get_user_service)],
     ) -> list[dict]:
         """
         List users waiting for manager/admin approval.
         
-        Access: MANAGER, ADMIN
+        Access: ADMIN only
         """
         try:
-            return user_service.list_pending_users()
+            return user_service.list_pending_users(
+                _organization_id(admin)
+            )
         except Exception as exc:
             logger.log(
                 LOG_LEVEL_ERROR,
@@ -106,7 +115,9 @@ class UserController:
         Access: MANAGER, ADMIN
         """
         try:
-            return user_service.list_assignable_users()
+            return user_service.list_assignable_users(
+                _organization_id(manager)
+            )
         except Exception as exc:
             logger.log(
                 LOG_LEVEL_ERROR,
@@ -119,16 +130,19 @@ class UserController:
     @router.get("/users")
     async def list_users(
         request: Request,
-        current_user: Annotated[dict, Depends(get_current_user)],
+        admin: Annotated[dict, Depends(require_admin)],
         user_service: Annotated[UserService, Depends(get_user_service)],
+        approval_status: Literal["pending", "approved", "rejected"] | None = None,
     ) -> list[dict]:
         """
         List all users.
         
-        Access: All authenticated employees
+        Access: ADMIN only. Results are scoped to the admin's organization.
         """
         try:
-            return user_service.list_users()
+            return user_service.list_users(
+                _organization_id(admin), approval_status
+            )
         except Exception as exc:
             logger.log(
                 LOG_LEVEL_ERROR,
@@ -142,16 +156,16 @@ class UserController:
     async def get_user(
         user_id: UUID,
         request: Request,
-        current_user: Annotated[dict, Depends(get_current_user)],
+        admin: Annotated[dict, Depends(require_admin)],
         user_service: Annotated[UserService, Depends(get_user_service)],
     ) -> dict:
         """
         Get a specific user by ID.
         
-        Access: All authenticated employees
+        Access: ADMIN only
         """
         try:
-            return user_service.get_user(user_id)
+            return user_service.get_user(user_id, _organization_id(admin))
         except LookupError as exc:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
         except Exception as exc:
@@ -167,16 +181,20 @@ class UserController:
     async def create_user(
         payload: UserCreateRequest,
         request: Request,
-        current_user: Annotated[dict, Depends(get_current_user)],
+        admin: Annotated[dict, Depends(require_admin)],
         user_service: Annotated[UserService, Depends(get_user_service)],
     ) -> dict:
         """
         Create a new user.
         
-        Access: All authenticated employees
+        Access: ADMIN only
         """
         try:
-            return user_service.create_user(payload)
+            return user_service.create_user(
+                payload,
+                _organization_id(admin),
+                UUID(admin["id"]),
+            )
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
         except Exception as exc:
@@ -193,13 +211,13 @@ class UserController:
         user_id: UUID,
         payload: UserUpdateRequest,
         request: Request,
-        current_user: Annotated[dict, Depends(get_current_user)],
+        admin: Annotated[dict, Depends(require_admin)],
         user_service: Annotated[UserService, Depends(get_user_service)],
     ) -> dict:
         """
         Update a user.
         
-        Access: All authenticated employees
+        Access: ADMIN only
         """
         # Ensure the user_id in the path matches the one in the payload
         if payload.user_id != user_id:
@@ -209,7 +227,11 @@ class UserController:
             )
 
         try:
-            return user_service.update_user(payload)
+            return user_service.update_user(
+                payload,
+                _organization_id(admin),
+                UUID(admin["id"]),
+            )
         except LookupError as exc:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
         except ValueError as exc:
@@ -237,9 +259,19 @@ class UserController:
         Access: ADMIN only
         """
         try:
-            return user_service.verify_user(user_id, payload)
+            return user_service.verify_user(
+                user_id,
+                payload,
+                _organization_id(admin),
+                UUID(admin["id"]),
+            )
         except LookupError as exc:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=str(exc),
+            ) from exc
         except Exception as exc:
             logger.log(
                 LOG_LEVEL_ERROR,
@@ -257,12 +289,16 @@ class UserController:
         user_service: Annotated[UserService, Depends(get_user_service)],
     ) -> dict:
         """
-        Delete a user.
+        Archive a user while preserving history and audit records.
         
         Access: ADMIN only
         """
         try:
-            return user_service.delete_user(user_id)
+            return user_service.delete_user(
+                user_id,
+                _organization_id(admin),
+                UUID(admin["id"]),
+            )
         except LookupError as exc:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
         except ValueError as exc:
@@ -270,10 +306,56 @@ class UserController:
         except Exception as exc:
             logger.log(
                 LOG_LEVEL_ERROR,
-                f"Delete user failed for {request.method} {request.url.path}, error: {exc}",
+                f"Archive user failed for {request.method} {request.url.path}, error: {exc}",
                 exc_info=True,
             )
-            raise HTTPException(status_code=500, detail="Failed to delete user") from exc
+            raise HTTPException(status_code=500, detail="Failed to archive user") from exc
+
+
+    @staticmethod
+    @router.patch("/users/{user_id}/access")
+    async def update_user_access(
+        user_id: UUID,
+        payload: UserAccessUpdateRequest,
+        request: Request,
+        admin: Annotated[dict, Depends(require_admin)],
+        user_service: Annotated[UserService, Depends(get_user_service)],
+    ) -> dict:
+        """Change an employee role or active state inside the admin's organization."""
+        try:
+            return user_service.update_access(
+                user_id,
+                payload,
+                _organization_id(admin),
+                UUID(admin["id"]),
+            )
+        except LookupError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+            ) from exc
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
+        except Exception as exc:
+            logger.log(
+                LOG_LEVEL_ERROR,
+                f"Update access failed for {request.method} {request.url.path}, error: {exc}",
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=500, detail="Failed to update user access"
+            ) from exc
+
+
+def _organization_id(user: dict) -> UUID:
+    value = user.get("organization_id")
+    if not value:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Organization setup is required",
+        )
+    return UUID(value)
 
 
 user_router = UserController.router

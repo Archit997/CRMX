@@ -1,26 +1,22 @@
-import uvicorn
-from typing import Annotated
-from fastapi import Depends, FastAPI, Request
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
-from pathlib import Path
+import re
+import time
+from uuid import uuid4
 
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
 
 from db.postgres import PostgresDB
-
 from services.auth.controller import auth_router
-from services.auth.dependencies import require_developer
+from services.audit.controller import audit_router
 from services.client.controller import client_router
+from services.organization.controller import organization_router
 from services.postgres import PostgresService
 from services.postgres.controller import postgres_router
 from services.status.controller import status_router
 from services.user.controller import user_router
-# POC endpoints commented out - using Postgres endpoints instead
-# from services.poc.controller import poc_router
-# from services.poc.poc_data_service import POCDataService
-
 from utils.constants import (
     APP_TITLE,
     APP_VERSION,
@@ -29,16 +25,14 @@ from utils.constants import (
 )
 
 from utils.env_vars import EnvVars
-from utils.logger import AppLogger
+from utils.logging import AppLogger
+from utils.request_context import get_request_id, reset_request_id, set_request_id
+from utils.runtime_config import is_production, validate_runtime_config
 
 from contextlib import asynccontextmanager
 
 AppLogger.configure()
 logger = AppLogger.get_logger(__name__)
-
-PROJECT_ROOT = Path(__file__).resolve().parent
-DATA_DIR = PROJECT_ROOT / "data"
-MOBILE_PROTOTYPE_DIR = PROJECT_ROOT / "mobile-prototype"
 
 
 @asynccontextmanager
@@ -46,11 +40,10 @@ async def lifespan(app: FastAPI):
     postgres_db = PostgresDB()
     try:
         logger.info("Starting application lifespan")
+        validate_runtime_config()
         postgres_db.connect()
         app.state.postgres_db = postgres_db
         app.state.postgres_service = PostgresService(postgres_db)
-        # POC data service commented out - using Postgres instead
-        # app.state.poc_data_service = POCDataService(DATA_DIR)
         yield
     except Exception:
         logger.exception("Application lifespan failed")
@@ -64,7 +57,56 @@ async def lifespan(app: FastAPI):
             raise
 
 
-app = FastAPI(title=APP_TITLE, version=APP_VERSION, lifespan=lifespan)
+app = FastAPI(
+    title=APP_TITLE,
+    version=APP_VERSION,
+    lifespan=lifespan,
+    docs_url=None if is_production() else "/docs",
+    redoc_url=None if is_production() else "/redoc",
+    openapi_url=None if is_production() else "/openapi.json",
+)
+
+REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+
+
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    supplied_request_id = request.headers.get("X-Request-ID", "").strip()
+    request_id = (
+        supplied_request_id
+        if REQUEST_ID_PATTERN.fullmatch(supplied_request_id)
+        else str(uuid4())
+    )
+    context_token = set_request_id(request_id)
+    started_at = time.perf_counter()
+    try:
+        response = await call_next(request)
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        logger.info(
+            "request_completed method=%s path=%s status=%s duration_ms=%.2f",
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration_ms,
+        )
+        response.headers["X-Request-ID"] = request_id
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        if request.url.path.startswith("/api/auth"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
+    except Exception:
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        logger.exception(
+            "request_failed method=%s path=%s duration_ms=%.2f",
+            request.method,
+            request.url.path,
+            duration_ms,
+        )
+        raise
+    finally:
+        reset_request_id(context_token)
 
 origins = [
     o.strip()
@@ -75,36 +117,56 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+    expose_headers=["X-Request-ID"],
 )
 
+allowed_hosts = [
+    host.strip()
+    for host in (EnvVars.get("ALLOWED_HOSTS") or "").split(",")
+    if host.strip()
+]
+if allowed_hosts:
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=allowed_hosts,
+    )
+
 app.include_router(auth_router)
+app.include_router(audit_router)
 app.include_router(postgres_router)
 app.include_router(client_router)
+app.include_router(organization_router)
 app.include_router(status_router)
 app.include_router(user_router)
 
-# POC router commented out - using Postgres endpoints instead
-# app.include_router(poc_router)
-# app.mount("/mobile", StaticFiles(directory=MOBILE_PROTOTYPE_DIR, html=True), name="mobile")
-
-
-
 @app.get("/")
-async def root(dev: Annotated[dict, Depends(require_developer)]) -> RedirectResponse:
-    """
-    Root endpoint - redirects to API documentation.
-    
-    Access: DEV (Developer) role only
-    """
-    # Redirect to docs instead of mobile prototype (POC)
-    return RedirectResponse(url="/docs")
+async def root() -> JSONResponse:
+    return JSONResponse(
+        status_code=200,
+        content={"service": APP_TITLE, "version": APP_VERSION},
+    )
+
 
 @app.get("/health")
 async def health() -> JSONResponse:
     return JSONResponse(status_code=200, content={"status": "ok"})
+
+
+@app.get("/ready")
+async def ready(request: Request) -> JSONResponse:
+    try:
+        request.app.state.postgres_db.ping()
+        return JSONResponse(status_code=200, content={"status": "ready"})
+    except Exception:
+        logger.exception("Readiness check failed")
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unavailable"},
+        )
+
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -115,7 +177,10 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     )
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error"},
+        content={
+            "detail": "Internal server error",
+            "request_id": get_request_id(),
+        },
     )
 
 
@@ -123,4 +188,9 @@ if __name__ == "__main__":
     host = EnvVars.get("SERVER_HOST", DEFAULT_SERVER_HOST)
     port = int(EnvVars.get("SERVER_PORT", str(DEFAULT_SERVER_PORT)))
     logger.info("Starting uvicorn server on %s:%s", host, port)
-    uvicorn.run("main:app", host=host, port=port, reload=True)
+    uvicorn.run(
+        "main:app",
+        host=host,
+        port=port,
+        reload=not is_production(),
+    )

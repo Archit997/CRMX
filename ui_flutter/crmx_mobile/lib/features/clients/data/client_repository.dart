@@ -16,7 +16,7 @@ class ClientRepository {
     try {
       final results = await Future.wait([
         _cacheService.getStatusMaster(), // Cached status master
-        _apiClient.get('/client-list'),  // Clients with names included
+        _apiClient.get('/client-list'), // Clients with names included
       ]);
 
       final statuses = results[0] as List<StatusMaster>;
@@ -76,10 +76,10 @@ class ClientRepository {
   Future<ClientInfo> createClient(Map<String, dynamic> clientData) async {
     try {
       final response = await _apiClient.post('/client', body: clientData);
-      
+
       // Invalidate assignable users cache in case a new user was involved
       _cacheService.invalidateAssignableUsers();
-      
+
       return ClientInfo.fromJson(response as Map<String, dynamic>);
     } catch (e) {
       rethrow;

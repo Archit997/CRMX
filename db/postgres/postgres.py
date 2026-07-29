@@ -9,7 +9,7 @@ from sqlalchemy.engine import Engine, RowMapping
 from sqlalchemy.orm import Session, sessionmaker
 
 from utils.env_vars import EnvVars
-from utils.logger import AppLogger
+from utils.logging import AppLogger
 
 logger = AppLogger.get_logger(__name__)
 
@@ -30,6 +30,16 @@ class PostgresDB:
             self._engine = create_engine(
                 self._database_url(),
                 pool_pre_ping=True,
+                pool_size=int(EnvVars.get("DB_POOL_SIZE", "5") or "5"),
+                max_overflow=int(
+                    EnvVars.get("DB_MAX_OVERFLOW", "10") or "10"
+                ),
+                pool_timeout=int(
+                    EnvVars.get("DB_POOL_TIMEOUT_SECONDS", "30") or "30"
+                ),
+                pool_recycle=int(
+                    EnvVars.get("DB_POOL_RECYCLE_SECONDS", "1800") or "1800"
+                ),
                 future=True,
             )
             self._session_factory = sessionmaker(

@@ -10,10 +10,11 @@ import '../domain/auth_user.dart';
 // Providers
 
 /// Provider for cache service with automatic token refresh
-final Provider<CacheService> baseCacheServiceProvider = Provider<CacheService>((ref) {
+final Provider<CacheService> baseCacheServiceProvider =
+    Provider<CacheService>((ref) {
   // Create cache service holder
   late CacheService cacheService;
-  
+
   // Create API client with token refresh capability
   final apiClient = ApiClient(
     tokenProvider: () async {
@@ -29,21 +30,23 @@ final Provider<CacheService> baseCacheServiceProvider = Provider<CacheService>((
       cacheService.cacheRefreshToken(newRefreshToken);
     },
   );
-  
+
   // Create the cache service
   cacheService = CacheService(apiClient);
-  
+
   return cacheService;
 });
 
 /// Provider for auth repository using backend API
-final Provider<AuthRepository> authRepositoryProvider = Provider<AuthRepository>((ref) {
+final Provider<AuthRepository> authRepositoryProvider =
+    Provider<AuthRepository>((ref) {
   final cacheService = ref.read(baseCacheServiceProvider);
   return BackendAuthRepository(cacheService);
 });
 
 /// Alias for auth cache service (for backward compatibility)
-final Provider<CacheService> authCacheServiceProvider = Provider<CacheService>((ref) {
+final Provider<CacheService> authCacheServiceProvider =
+    Provider<CacheService>((ref) {
   return ref.read(baseCacheServiceProvider);
 });
 
@@ -55,7 +58,8 @@ final StateNotifierProvider<AuthController, AuthState> authControllerProvider =
   );
 });
 
-final StreamProvider<AuthUser?> authUserProvider = StreamProvider<AuthUser?>((ref) async* {
+final StreamProvider<AuthUser?> authUserProvider =
+    StreamProvider<AuthUser?>((ref) async* {
   final repository = ref.read(authRepositoryProvider);
 
   // Emit current user immediately
@@ -114,6 +118,8 @@ class AuthController extends StateNotifier<AuthState> {
         approvalStatus: null,
         isActive: false,
         createdAt: null,
+        organizationId: null,
+        organizationName: null,
       );
       state = SignupRequired(tempUser);
     } on ApprovalPendingException catch (e) {
@@ -143,6 +149,7 @@ class AuthController extends StateNotifier<AuthState> {
     required AuthUser user,
     required String name,
     required String role,
+    required String organizationCode,
     String? contact,
   }) async {
     try {
@@ -151,13 +158,41 @@ class AuthController extends StateNotifier<AuthState> {
         user: user,
         name: name,
         role: role,
+        organizationCode: organizationCode,
         contact: contact,
       );
       // Cache profile so approval status checks work after signup
       _cacheService.cacheCurrentUserData(pendingUser.toMap());
       state = ApprovalPending(pendingUser);
     } on Exception catch (e) {
-      state = AuthError(ErrorHandler.getUserFriendlyMessage(e));
+      state = SignupRequired(
+        user,
+        error: ErrorHandler.getUserFriendlyMessage(e),
+      );
+    }
+  }
+
+  Future<void> bootstrapOrganization({
+    required AuthUser user,
+    required String organizationName,
+    required String adminName,
+    String? contact,
+  }) async {
+    try {
+      state = const Authenticating();
+      final admin = await _authRepository.bootstrapOrganization(
+        user: user,
+        organizationName: organizationName,
+        adminName: adminName,
+        contact: contact,
+      );
+      _cacheService.cacheCurrentUserData(admin.toMap());
+      state = Authenticated(admin);
+    } on Exception catch (e) {
+      state = OrganizationSetupRequired(
+        user,
+        error: ErrorHandler.getUserFriendlyMessage(e),
+      );
     }
   }
 
@@ -166,10 +201,10 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       state = const Authenticating();
       await _authRepository.signOut();
-      
+
       // Clear all caches on logout
       _cacheService.clearAll();
-      
+
       state = const Unauthenticated();
     } on Exception catch (e) {
       state = AuthError(ErrorHandler.getUserFriendlyMessage(e));
@@ -196,17 +231,17 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   /// Check approval status with fresh data from backend
-  /// 
+  ///
   /// This method is specifically for when a user on the approval pending screen
   /// clicks "Check again" - it bypasses cache to get the latest approval status
   /// from the backend in case an admin just approved/rejected them.
   Future<void> checkApprovalStatus() async {
     try {
       state = const Authenticating();
-      
+
       // Invalidate cached user data to force fresh fetch
       _cacheService.invalidateCurrentUserData();
-      
+
       final isAuthenticated = await _authRepository.isAuthenticated();
       if (isAuthenticated) {
         final user = await _authRepository.getCurrentUser();
@@ -233,8 +268,10 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
-  Future<AuthState> _stateForUser(AuthUser user, {bool forceRefresh = false}) async {
-    final profile = await _authRepository.getAppProfile(user, forceRefresh: forceRefresh);
+  Future<AuthState> _stateForUser(AuthUser user,
+      {bool forceRefresh = false}) async {
+    final profile =
+        await _authRepository.getAppProfile(user, forceRefresh: forceRefresh);
     if (profile == null) {
       return SignupRequired(user);
     }
@@ -243,6 +280,11 @@ class AuthController extends StateNotifier<AuthState> {
     _cacheService.cacheCurrentUserData(profile.toMap());
 
     return switch (profile.approvalStatus) {
+      'approved'
+          when profile.isActive &&
+              profile.role == 'ADMIN' &&
+              profile.organizationId == null =>
+        OrganizationSetupRequired(profile),
       'approved' when profile.isActive => Authenticated(profile),
       'rejected' => ApprovalRejected(profile),
       _ => ApprovalPending(profile),

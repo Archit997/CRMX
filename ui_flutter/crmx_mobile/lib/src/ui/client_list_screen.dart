@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/errors.dart';
 import '../../features/auth/domain/auth_user.dart';
 import '../../features/auth/presentation/auth_controller.dart';
-import '../../features/auth/presentation/pending_users_screen.dart';
+import '../../features/admin/presentation/admin_workspace_screen.dart';
 import '../../features/clients/presentation/client_controller.dart';
 import '../models/crmx_models.dart';
 import '../theme/app_theme.dart';
@@ -70,16 +70,16 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'CRMX',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
             ),
             Text(
-              'Client Management',
-              style: TextStyle(
+              widget.currentUser.organizationName ?? 'Client management',
+              style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.muted,
@@ -88,11 +88,11 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
           ],
         ),
         actions: [
-          if (_canVerifyUsers)
+          if (_isAdmin)
             IconButton(
-              icon: const Icon(Icons.verified_user_rounded),
-              onPressed: _openPendingApprovals,
-              tooltip: 'Pending user approvals',
+              icon: const Icon(Icons.admin_panel_settings_rounded),
+              onPressed: _openAdmin,
+              tooltip: 'Admin and team',
             ),
           // API status indicator
           Padding(
@@ -103,8 +103,8 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: dashboardState.hasValue
-                      ? AppTheme.green.withOpacity(0.15)
-                      : AppTheme.amber.withOpacity(0.15),
+                      ? AppTheme.green.withValues(alpha: 0.15)
+                      : AppTheme.amber.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -244,15 +244,13 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
     );
   }
 
-  bool get _canVerifyUsers =>
-      widget.currentUser.role == 'MANAGER' ||
-      widget.currentUser.role == 'ADMIN';
+  bool get _isAdmin => widget.currentUser.role == 'ADMIN';
 
-  void _openPendingApprovals() {
+  void _openAdmin() {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => PendingUsersScreen(
+        builder: (_) => AdminWorkspaceScreen(
           authRepository: ref.read(authRepositoryProvider),
           currentUser: widget.currentUser,
         ),
@@ -325,7 +323,7 @@ class _ClientListScreenState extends ConsumerState<ClientListScreen> {
     ClientInfo client,
     List<StatusMaster> statuses,
   ) async {
-    final result = await Navigator.push<bool>(
+    await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (context) => ClientDetailScreen(
@@ -463,7 +461,8 @@ class ClientListCard extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: _priorityColor(client.priority).withOpacity(0.15),
+                      color: _priorityColor(client.priority)
+                          .withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -501,7 +500,7 @@ class ClientListCard extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: AppTheme.green.withOpacity(0.1),
+                        color: AppTheme.green.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(

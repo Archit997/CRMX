@@ -34,7 +34,7 @@ class AppTheme {
         color: surface,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(8),
           side: const BorderSide(color: line),
         ),
       ),
@@ -42,15 +42,15 @@ class AppTheme {
         filled: true,
         fillColor: const Color(0xFFFBFCFD),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: line),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: line),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: green, width: 1.4),
         ),
       ),
@@ -59,8 +59,7 @@ class AppTheme {
           minimumSize: const Size.fromHeight(48),
           backgroundColor: ink,
           foregroundColor: Colors.white,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           textStyle: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
