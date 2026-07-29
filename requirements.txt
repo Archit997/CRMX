@@ -1,6 +1,7 @@
 # Runtime dependencies. Update deliberately and run the full test suite.
 fastapi==0.139.0
 psycopg[binary]==3.3.4
+psycopg2-binary==2.9.10
 pymongo==4.17.0
 pyjwt[crypto]==2.13.0
 python-dotenv==1.2.2
